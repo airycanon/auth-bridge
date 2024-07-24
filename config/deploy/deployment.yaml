@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: auth-bridge
+  name: auth-bridge
+  labels:
+    control-plane: auth-bridge
+spec:
+  selector:
+    matchLabels:
+      control-plane: auth-bridge
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        control-plane: auth-bridge
+    spec:
+      containers:
+        - image: auth-bridge:v1
+          name: proxy
+          command:
+            - auth-bridge
+            - proxy
+          args:
+            - --ca-key=/certs/tls.key
+            - --ca-cert=/certs/tls.crt
+          env:
+            - name: RUST_LOG
+              value: debug
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+          volumeMounts:
+            - name: cert
+              mountPath: /certs
+        - image: auth-bridge:v1
+          name: controller
+          command:
+            - auth-bridge
+            - controller
+          env:
+            - name: RUST_LOG
+              value: debug
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+      serviceAccountName: auth-bridge
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: auth-bridge-proxy-cert

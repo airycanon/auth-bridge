@@ -3,16 +3,6 @@ name = "auth-bridge"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[[bin]]
-name = "controller"
-path = "src/bin/controller.rs"
-
-[[bin]]
-name = "proxy"
-path = "src/bin/proxy.rs"
-
 [dependencies]
 tracing-subscriber = "0.3"
 
@@ -37,4 +27,6 @@ bytes = "1.6"
 tokio = { version = "1.38", features = ["macros", "rt", "rt-multi-thread"] }
 url = "2.5"
 hyper = "1.3"
-http-body-util= "0.1"
+http-body-util = "0.1"
+crossbeam-skiplist = "0.1.3"
+lazy_static = "1.5.0"

@@ -1,11 +1,13 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use k8s_openapi::{
     api::core::v1::ObjectReference,
     apimachinery::pkg::apis::meta::v1::Condition,
 };
 use kube::CustomResource;
+use regorus::Value;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use anyhow::Result;
 
 
 // A struct with our chosen Kind will be created for us, using the following kube attrs
@@ -49,6 +51,22 @@ pub struct ProxyPolicySecret {
 pub struct ProxyPolicyRule {
     pub opa: String,
     pub query: String,
+}
+
+impl ProxyPolicyRule {
+   pub fn eval(&self, input: &BTreeMap<Value, Value>) -> Result<bool> {
+        let clone = self.clone();
+        let policy = String::from(clone.opa);
+
+        let mut engine = regorus::Engine::new();
+        engine.add_policy(String::from("policy.rego"), policy)?;
+        engine.set_input(Value::from(input.clone()));
+
+        let value = engine.eval_rule(clone.query.trim_end().to_string())?;
+        let result = value == regorus::Value::from(true);
+
+        Ok(result)
+    }
 }
 
 impl Default for ProxyPolicySecret {

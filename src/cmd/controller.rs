@@ -7,12 +7,9 @@ use kube::{
 use log::{debug, error, info};
 use anyhow::Result;
 use futures::stream::StreamExt;
-use auth_bridge::apis::proxy_policy::ProxyPolicy;
+use crate::apis::proxy_policy::ProxyPolicy;
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
-
+pub async fn run() -> Result<()> {
     let client = Client::try_default().await?;
 
     // Manage CRDs first

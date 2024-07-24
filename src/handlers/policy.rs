@@ -7,7 +7,10 @@ use bytes::Bytes;
 use hudsucker::tokio_tungstenite::tungstenite::http::Method;
 use hyper::http::request::Parts;
 use regorus::Value;
-use crate::apis::proxy_policy::ProxyPolicy;
+use crate::apis::{
+    pod_meta,
+    proxy_policy::ProxyPolicy,
+};
 use kube::{api::{Api, ListParams}, Client, ResourceExt};
 
 
@@ -15,7 +18,7 @@ use kube::{api::{Api, ListParams}, Client, ResourceExt};
 pub struct PolicyHandler;
 
 impl HttpHandler for PolicyHandler {
-    async fn handle_request(&mut self, _ctx: &HttpContext, req: Request<Body>) -> RequestOrResponse {
+    async fn handle_request(&mut self, ctx: &HttpContext, req: Request<Body>) -> RequestOrResponse {
         if req.method() == Method::CONNECT {
             return RequestOrResponse::Request(req);
         }
@@ -62,7 +65,7 @@ impl HttpHandler for PolicyHandler {
         };
 
         let client = Client::try_default().await.map_err(handle_api_error).unwrap();
-        let api = Api::<ProxyPolicy>::default_namespaced(client);
+        let api = Api::<ProxyPolicy>::all(client);
 
         let params = ListParams::default();
         let policies = api.list(&params).await.map_err(handle_api_error).unwrap();
@@ -70,6 +73,11 @@ impl HttpHandler for PolicyHandler {
         let mut input: BTreeMap<Value, Value> = BTreeMap::new();
         input.insert(Value::from("query"), query);
         input.insert(Value::from("body"), body);
+
+        let ip = ctx.client_addr.ip();
+        if let Some(meta) = pod_meta::find(&ip.to_string()) {
+            input.insert(Value::from("meta"), meta.as_input());
+        }
 
         for item in policies.iter() {
             match eval_policy(&item, &input) {
@@ -79,7 +87,7 @@ impl HttpHandler for PolicyHandler {
                     return RequestOrResponse::Response(res);
                 }
                 Err(err) => {
-                    let mut res = Response::new(Body::from(format!("failed to eval policy: {}, err: {}",item.name_any(), err)));
+                    let mut res = Response::new(Body::from(format!("failed to eval policy: {}, err: {}", item.name_any(), err)));
                     *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                     return RequestOrResponse::Response(res);
                 }
@@ -94,14 +102,7 @@ impl HttpHandler for PolicyHandler {
 
 fn eval_policy(policy: &ProxyPolicy, input: &BTreeMap<Value, Value>) -> Result<bool> {
     for rule in policy.spec.rules.iter() {
-        let policy = String::from(rule.clone().opa);
-
-        let mut engine = regorus::Engine::new();
-        engine.add_policy(String::from("policy.rego"), policy)?;
-        engine.set_input(Value::from(input.clone()));
-
-        let result = engine.eval_rule(rule.clone().query.trim_end().to_string())?;
-        if result != regorus::Value::from(true) {
+        if !rule.eval(input)? {
             return Ok(false);
         }
     }

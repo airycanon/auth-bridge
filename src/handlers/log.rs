@@ -1,5 +1,6 @@
 use hudsucker::{Body, HttpContext, HttpHandler, RequestOrResponse};
 use hudsucker::hyper::{Request, Response};
+use log::info;
 
 #[derive(Clone)]
 pub struct LogHandler;
@@ -10,12 +11,12 @@ impl HttpHandler for LogHandler {
         _ctx: &HttpContext,
         req: Request<Body>,
     ) -> RequestOrResponse {
-        println!("{:?}", req);
+        info!("{:?}", req);
         req.into()
     }
 
     async fn handle_response(&mut self, _ctx: &HttpContext, res: Response<Body>) -> Response<Body> {
-        println!("{:?}", res);
+        info!("{:?}", res);
         res
     }
 }

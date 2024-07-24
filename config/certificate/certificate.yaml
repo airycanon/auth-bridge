@@ -1,0 +1,24 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    control-plane: auth-bridge
+  name: auth-bridge-proxy
+  namespace: auth-bridge
+spec:
+  duration: 87600h0m0s
+  renewBefore: 720h0m0s
+  dnsNames:
+    - auth-bridge-proxy.auth-bridge.svc
+    - auth-bridge-proxy.auth-bridge.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: auth-bridge-proxy-issuer
+  privateKey:
+    size: 2048
+    encoding: PKCS8
+  subject:
+    organizations:
+      - auth-bridge
+  isCA: true
+  secretName: auth-bridge-proxy-cert

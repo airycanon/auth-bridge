@@ -1,0 +1,11 @@
+# Adds namespace to all resources.
+namespace: auth-bridge
+
+# Labels to add to all resources and selectors.
+commonLabels:
+ control-plane: auth-bridge
+
+resources:
+  - ../deploy
+  - ../rbac
+  - ../certificate
