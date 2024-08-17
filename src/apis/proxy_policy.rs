@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use k8s_openapi::{
     api::core::v1::ObjectReference,
     apimachinery::pkg::apis::meta::v1::Condition,
@@ -8,6 +8,14 @@ use regorus::Value;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
+use log::info;
+use schemars::gen::SchemaGenerator;
+use schemars::schema::Schema;
+
+const MESSAGE_KEY: &str = "data.proxy.message";
+const DEFAULT_MESSAGE: &str = "policy should contains message variable";
+const RESULT_KEY: &str = "data.proxy.allowed";
+const POLICY_NAME: &str = "policy.rego";
 
 
 // A struct with our chosen Kind will be created for us, using the following kube attrs
@@ -20,86 +28,98 @@ use anyhow::Result;
     status = "ProxyPolicyStatus",
 )]
 pub struct ProxyPolicySpec {
-    pub secret: ProxyPolicySecret,
+    pub auth: ProxyPolicyAuth,
     pub rules: Vec<ProxyPolicyRule>,
-    pub method: ProxyPolicyMethod,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
+pub struct ProxyPolicyAuth {
+    pub method: ProxyPolicyMethod,
+    pub secret: ProxyPolicySecret,
+}
+
+#[derive(Serialize, Deserialize,Debug, Clone, JsonSchema)]
 pub enum ProxyPolicyMethod {
     #[serde(rename(deserialize = "basicAuth", serialize = "basicAuth"))]
-    BasicAuth { header: String },
+    BasicAuth,
     #[serde(rename(deserialize = "bearerToken", serialize = "bearerToken"))]
-    BearerToken { header: String },
+    BearerToken,
+    #[serde(rename(deserialize = "customerHeader", serialize = "customerHeader"))]
+    CustomHeader,
+    #[serde(rename(deserialize = "query", serialize = "query"))]
+    Query,
 }
 
 impl Default for ProxyPolicyMethod {
     fn default() -> Self {
-        ProxyPolicyMethod::BasicAuth {
-            header: String::from("Authorization"),
-        }
+        ProxyPolicyMethod::BasicAuth
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ProxyPolicySecret {
     pub reference: Option<ObjectReference>,
-    pub data: Option<HashMap<String, String>>,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone, JsonSchema)]
-pub struct ProxyPolicyRule {
-    pub opa: String,
-    pub query: String,
-}
-
-impl ProxyPolicyRule {
-   pub fn eval(&self, input: &BTreeMap<Value, Value>) -> Result<bool> {
-        let clone = self.clone();
-        let policy = String::from(clone.opa);
-
-        let mut engine = regorus::Engine::new();
-        engine.add_policy(String::from("policy.rego"), policy)?;
-        engine.set_input(Value::from(input.clone()));
-
-        let value = engine.eval_rule(clone.query.trim_end().to_string())?;
-        let result = value == regorus::Value::from(true);
-
-        Ok(result)
-    }
-}
-
-impl Default for ProxyPolicySecret {
-    fn default() -> Self {
-        ProxyPolicySecret { reference: None, data: None }
-    }
+    pub raw: Option<BTreeMap<String, String>>,
 }
 
 impl JsonSchema for ProxyPolicySecret {
     fn schema_name() -> String {
-        "ProxyPolicySecret".to_owned()
+        return "ProxyPolicySecret".to_owned();
     }
-    fn json_schema(_: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+
+    fn json_schema(_: &mut SchemaGenerator) -> Schema {
         serde_json::from_value(serde_json::json!({
             "type": "object",
             "properties": {
-                "reference":{
+                "reference": {
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string","description":"secret name"},
-                        "namespace": {"type": "string","description":"secret namespace"},
-                    },
-                    "required": [
-                        "name",
-                        "namespace"
-                    ]
+                         "namespace":{
+                            "type": "string",
+                            "description": "secret namespace",
+                        },
+                        "name":{
+                            "type": "string",
+                            "description": "secret name",
+                        }
+                    }
                 },
-                "data": {"type": "object", "description":"secret data"}
+                "raw": {
+                    "type": "object",
+                    "description":"secret data"
+                }
             }
         })).unwrap()
     }
 }
 
+#[derive(Serialize, Deserialize, Default, Debug, Clone, JsonSchema)]
+pub struct ProxyPolicyRule {
+    pub name: String,
+    pub validate: OpaValidator,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone, JsonSchema)]
+pub struct OpaValidator(pub String);
+
+impl ProxyPolicyRule {
+    pub fn eval(&self, input: &BTreeMap<Value, Value>) -> Result<bool> {
+        let clone = self.clone();
+
+        let mut engine = regorus::Engine::new();
+        engine.add_policy(String::from(POLICY_NAME), clone.validate.0)?;
+        engine.set_input(Value::from(input.clone()));
+
+        let allowed = engine.eval_bool_query(RESULT_KEY.to_string(),true)?;
+        let mut message = engine.eval_rule(MESSAGE_KEY.to_string())?;
+        if message == Value::Undefined {
+            message = Value::from(DEFAULT_MESSAGE);
+        }
+
+        info!("Policy eval result: {}，message: {}",allowed, message);
+        Ok(allowed)
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 pub struct ProxyPolicyStatus {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

@@ -4,7 +4,7 @@ WORKDIR /workspace
 
 COPY ./ /workspace
 
-RUN apk update && apk add git build-base && cargo build --release && ls /workspace
+RUN apk update && apk add git build-base && cargo build --release
 
 
 FROM alpine:3

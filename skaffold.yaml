@@ -1,0 +1,13 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+manifests:
+  kustomize:
+    paths:
+      - ./config/default
+build:
+  local:
+    push: false
+  artifacts:
+    - image: auth-bridge
+      docker:
+        dockerfile: Dockerfile

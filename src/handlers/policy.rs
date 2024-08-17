@@ -12,7 +12,8 @@ use crate::apis::{
     proxy_policy::ProxyPolicy,
 };
 use kube::{api::{Api, ListParams}, Client, ResourceExt};
-
+use log::{error, info};
+use crate::secret::injector::{inject};
 
 #[derive(Clone, Default)]
 pub struct PolicyHandler;
@@ -22,6 +23,8 @@ impl HttpHandler for PolicyHandler {
         if req.method() == Method::CONNECT {
             return RequestOrResponse::Request(req);
         }
+
+        info!("request url: {}",req.uri().to_string());
 
         let (parts, body) = req.into_parts();
         let bytes = match http_body_util::BodyExt::collect(body).await.map(Collected::to_bytes) {
@@ -40,6 +43,7 @@ impl HttpHandler for PolicyHandler {
                 return handle_parse_error(err)
             }
         };
+
 
         let content_type = parts_clone.headers.get(hyper::header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok());
@@ -74,29 +78,41 @@ impl HttpHandler for PolicyHandler {
         input.insert(Value::from("query"), query);
         input.insert(Value::from("body"), body);
 
+        let uri = parts_clone.uri.to_string();
+        input.insert(Value::from("uri"), Value::from(uri));
+
         let ip = ctx.client_addr.ip();
         if let Some(meta) = pod_meta::find(&ip.to_string()) {
             input.insert(Value::from("meta"), meta.as_input());
         }
 
+        let mut req_clone = Request::from_parts(parts_clone, body_clone);
         for item in policies.iter() {
             match eval_policy(&item, &input) {
-                Ok(allow) if !allow => {
-                    let mut res = Response::new(Body::from(format!("deny to pass policy: {}", item.name_any())));
-                    *res.status_mut() = StatusCode::FORBIDDEN;
-                    return RequestOrResponse::Response(res);
+                Ok(allow) => {
+                    info!("proxy eval: {}, result: {}", item.name_any(),allow);
+
+                    if !allow {
+                        continue;
+                    }
+
+                    match inject(&mut req_clone, item).await {
+                        Ok(_) => {
+                            info!("inject auth by policy: {}", item.name_any());
+                        }
+                        Err(err) => {
+                            error!("failed to inject auth: {}, err: {}", item.name_any(), err);
+                        }
+                    }
                 }
                 Err(err) => {
-                    let mut res = Response::new(Body::from(format!("failed to eval policy: {}, err: {}", item.name_any(), err)));
-                    *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-                    return RequestOrResponse::Response(res);
+                    error!("failed to eval policy: {}, err: {}", item.name_any(), err);
+                    continue;
                 }
-                _ => continue
             }
         }
 
-        let req_clone = Request::from_parts(parts_clone, body_clone);
-        return RequestOrResponse::Request(req_clone);
+        RequestOrResponse::Request(req_clone)
     }
 }
 

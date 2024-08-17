@@ -56,10 +56,16 @@ pub fn find(ip: &String) -> Option<Arc<PodMeta>> {
 }
 
 pub fn bind(pod: &Pod) {
+    if pod.metadata.deletion_timestamp.is_some() {
+        return;
+    }
+
     let meta = PodMeta::from(pod);
     if let Some(ip) = get_pod_ip(pod) {
-        info!("pod {:?} added with IP: {:?}", (&meta.namespace, &meta.name), &ip);
-        PODMETAS.insert(ip, Arc::new(meta));
+        if !PODMETAS.contains_key(&ip) {
+            info!("pod {:?} added with IP: {:?}", (&meta.namespace, &meta.name), &ip);
+            PODMETAS.insert(ip, Arc::new(meta));
+        }
     }
 }
 

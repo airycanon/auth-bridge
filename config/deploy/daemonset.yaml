@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   namespace: auth-bridge
   name: auth-bridge
@@ -9,7 +9,6 @@ spec:
   selector:
     matchLabels:
       control-plane: auth-bridge
-  replicas: 1
   template:
     metadata:
       labels:
@@ -37,7 +36,7 @@ spec:
           volumeMounts:
             - name: cert
               mountPath: /certs
-        - image: auth-bridge:v1
+        - image: auth-bridge:latest
           name: controller
           command:
             - auth-bridge
