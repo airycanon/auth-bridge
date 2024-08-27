@@ -9,64 +9,31 @@ Auth-Bridge is an open-source project that provides proxy capabilities for Kuber
 - Policy-based automatic credential injection
 - Flexible proxy configuration based on [Open Policy Agent](https://www.openpolicyagent.org).
 
-## Prepare
+
+## Installation
+
 Before installing Auth-Bridge, ensure you have the following prerequisites:
 
-### A Kubernetes cluster
-You can use [kind](https://kind.sigs.k8s.io) for local development.   
+#### A Kubernetes cluster
+You can use [Kind](https://kind.sigs.k8s.io) for local development.   
 Alternatively [OrbStack](https://orbstack.dev) provides a lightweight Kubernetes environment.
 
 
-### Install cert-manager
+#### Install cert-manager
 ```shell
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
 ```
 
-### Install skaffold
+#### Install skaffold
 ```bash
 curl -Lo skaffold https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64 && \
 sudo install skaffold /usr/local/bin/
 ```
 
-## Installation
+#### Install
 
 ```bash
 skaffold deploy
-```
-
-## Configuration
-
-Auth-Bridge is configured by ProxyPolicy CRD. Here's a basic configuration example:
-
-```yaml
-apiVersion: auth-bridge.dev/v1alpha1
-kind: ProxyPolicy
-metadata:
-  name: basic-auth
-  namespace: default
-spec:
-  auth:
-    method: basicAuth
-    secret:
-      reference:
-        name: basic-auth
-        namespace: <secret namespace>
-  rules:
-    - name: basic-rule
-      validate: | 
-        package proxy
-        
-        default allow = true
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: basic-auth
-  namespace: default
-type: Opaque
-stringData:
-  username: username
-  password: password
 ```
 
 ## Configuration
@@ -106,7 +73,7 @@ stringData:
   password: password
 ```
 
-### Field Definition
+#### Field Definition
 
 * `auth.method`
    This field specifies the authentication method to be used. It can be set to either:
@@ -132,7 +99,7 @@ stringData:
      }
      ```
   
-### Advanced
+#### Advanced
 The OPA script also has access to an input object that contains information about the target request and the pod.
 You can use input.<field> in your OPA script to make decisions. The available fields include:
 
@@ -158,7 +125,7 @@ In this example, the secret will only be injected if the request host is "exampl
 ## Usage
 Using Auth-Bridge involves several key steps:
 
-### Configure ProxyPolicy
+#### Configure ProxyPolicy
 Create a ProxyPolicy resource to define your proxy rules:
 ```yaml
 apiVersion: auth-bridge.dev/v1alpha1
@@ -177,7 +144,7 @@ spec:
       validate: <rule opa>
 ```
 
-### Create Secret
+#### Create Secret
 
 Create a Secret with correct credentials based on your policy auth method: 
 
@@ -193,7 +160,7 @@ stringData:
   password: <password>
 ```
 
-### Set proxy
+#### Set proxy
 To enable the Auth-Bridge proxy, set the following environment variables for your application:
 ```shell
 HTTP_PROXY=http://auth-bridge-proxy.auth-bridge:80
@@ -203,7 +170,7 @@ https_proxy=http://auth-bridge-proxy.auth-bridge:80
 ```
 the proxy host `auth-bridge-proxy.auth-bridge` here follows the Kubernetes service naming convention:`<service-name>.<namespace>`
 
-For a more detailed demonstration of how these steps come together, please refer to the [examples](tree/@/examples
+For a more detailed demonstration of how these steps come together, please refer to the [examples](tree/main/examples
 ).
 
 ## Contributing
