@@ -17,14 +17,21 @@ impl MultiHandler {
 }
 
 impl HttpHandler for MultiHandler {
-    async fn handle_request(&mut self, ctx: &HttpContext, mut req: Request<Body>) -> RequestOrResponse {
+    async fn handle_request(&mut self, ctx: &HttpContext, req: Request<Body>) -> RequestOrResponse {
+        let mut result = RequestOrResponse::Request(req);
+
         for handler in &self.handlers {
-            match handler.handle_request(ctx, req).await {
-                RequestOrResponse::Request(new_req) => req = new_req,
-                response => return response,
+            match result {
+                RequestOrResponse::Request(req) => {
+                    result = handler.handle_request(ctx, req).await;
+                },
+                RequestOrResponse::Response(_) => {
+                    break;
+                }
             }
         }
-        RequestOrResponse::Request(req)
+
+        result
     }
 }
 #[derive(Clone)]

@@ -15,7 +15,7 @@ spec:
         control-plane: auth-bridge
     spec:
       containers:
-        - image: auth-bridge:v1
+        - image: auth-bridge:latest
           name: proxy
           command:
             - auth-bridge

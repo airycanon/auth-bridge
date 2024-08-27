@@ -1,0 +1,35 @@
+apiVersion: auth-bridge.dev/v1alpha1
+kind: ProxyPolicy
+metadata:
+  name: basic-auth
+spec:
+  auth:
+    method: basicAuth
+    secret:
+      reference:
+        name: basic-auth
+        namespace: auth-bridge-example
+  rules:
+    - name: host-match
+      validate: |
+        package proxy
+        
+        default host = "nginx-service.auth-bridge-example"
+        default allowed = false
+        
+        allowed {
+          contains(input.uri, host)
+        }
+        
+        message := "policy does not contain host" {
+          contains(input.uri, host)
+        }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: basic-auth
+  namespace: auth-bridge-example
+stringData:
+  username: auth-user
+  password: auth-password
