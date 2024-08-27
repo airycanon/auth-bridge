@@ -170,8 +170,7 @@ https_proxy=http://auth-bridge-proxy.auth-bridge:80
 ```
 the proxy host `auth-bridge-proxy.auth-bridge` here follows the Kubernetes service naming convention:`<service-name>.<namespace>`
 
-For a more detailed demonstration of how these steps come together, please refer to the [examples](tree/main/examples
-).
+For a more detailed demonstration of how these steps come together, please refer to the [examples](examples).
 
 ## Contributing
 
