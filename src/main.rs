@@ -1,6 +1,10 @@
-use clap::{Parser, Subcommand};
-use auth_bridge::cmd::{proxy,controller};
 use anyhow::Result;
+use auth_bridge::cmd::controller;
+use auth_bridge::cmd::forward;
+use auth_bridge::cmd::forward::Args as ForwardArgs;
+use auth_bridge::cmd::reverse;
+use auth_bridge::cmd::reverse::Args as ReverseArgs;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -12,9 +16,12 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Adds files to myapp
+    #[command(long_about = "run controller")]
     Controller,
-    Proxy(proxy::Args)
+    #[command(long_about = "run forward proxy")]
+    ForwardProxy(ForwardArgs),
+    #[command(long_about = "run reverse proxy")]
+    ReverseProxy(ReverseArgs),
 }
 
 #[tokio::main]
@@ -26,11 +33,8 @@ async fn main() -> Result<()> {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Commands::Proxy(args) => {
-            proxy::run(args).await
-        },
-        Commands::Controller => {
-            controller::run().await
-        }
+        Commands::ForwardProxy(args) => forward::run(args).await,
+        Commands::ReverseProxy(args) => reverse::run(args).await,
+        Commands::Controller => controller::run().await,
     }
 }

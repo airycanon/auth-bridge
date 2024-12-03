@@ -1,4 +1,3 @@
 pub mod log;
 pub mod multi;
-
-pub mod policy;
+pub mod proxy;

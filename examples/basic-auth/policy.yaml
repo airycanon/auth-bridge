@@ -3,15 +3,15 @@ kind: ProxyPolicy
 metadata:
   name: basic-auth
 spec:
+  address:
   auth:
     method: basicAuth
-    secret:
-      reference:
-        name: basic-auth
-        namespace: auth-bridge-example
-  rules:
+    secretRef:
+      name: basic-auth
+      namespace: auth-bridge-example
+  policies:
     - name: host-match
-      validate: |
+      rule: |
         package proxy
         
         default host = "nginx-service.auth-bridge-example"
