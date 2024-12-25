@@ -10,23 +10,24 @@ use crate::core::script::engine::{Executor, RegoExecutor};
 #[kube(
     group = "auth-bridge.dev",
     version = "v1alpha1",
-    kind = "Policy",
+    kind = "Script",
     namespaced,
-    status = "PolicyStatus"
+    status = "ScriptStatus"
 )]
-pub struct PolicySpec {
-    pub script: String,
+pub struct ScriptSpec {
+    pub source: String,
     pub engine: Engine,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
-pub struct PolicyStatus {
+pub struct ScriptStatus {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[schemars(schema_with = "conditions")]
     pub conditions: Vec<Condition>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema, PartialEq)]
+#[serde(rename_all = "kebab-case")]
 pub enum Engine {
     Rego { query: String },
 }

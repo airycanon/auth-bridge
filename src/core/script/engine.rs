@@ -1,11 +1,10 @@
 use crate::core::script::input::Input;
 use anyhow::{anyhow, Result};
+use log::debug;
 use regorus::{Engine as RegoEngine, Value as RegoValue};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-
 
 pub trait Executor {
     fn execute(&self, source: String, input: &Input) -> Result<Value>;
@@ -27,6 +26,8 @@ impl RegoExecutor {
 
 impl Executor for RegoExecutor {
     fn execute(&self, source: String, input: &Input) -> Result<Value> {
+        debug!("scrip input {:?}", input);
+
         let mut engine = RegoEngine::new();
         engine.add_policy(String::from(self.script_name), source)?;
 
@@ -35,7 +36,7 @@ impl Executor for RegoExecutor {
 
         let results = engine.eval_query(self.query.clone(), true)?;
         if results.result.is_empty() || results.result[0].expressions.is_empty() {
-            return Err(anyhow!("No results returned"));
+            return Err(anyhow!("No results returned for rego query {}", self.query));
         }
 
         let value = &results.result[0].expressions[0].value;
@@ -44,3 +45,4 @@ impl Executor for RegoExecutor {
         Ok(json_value)
     }
 }
+

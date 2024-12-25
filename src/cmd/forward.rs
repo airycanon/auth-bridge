@@ -1,16 +1,16 @@
 use crate::core::pod::store::Store;
-use crate::proxy::forward::log::LogHandler;
-use crate::proxy::forward::multi::{HttpHandler, MultiHandler};
-use crate::proxy::forward::proxy::ProxyHandler;
+use crate::http::chain::Chain;
+use crate::http::log::{log_request, log_response};
+use crate::http::proxy::proxy_request;
 use anyhow::Result;
 use clap::Parser;
 use hudsucker::rcgen::{CertificateParams, KeyPair};
-use hudsucker::rustls::crypto::{aws_lc_rs};
+use hudsucker::rustls::crypto::aws_lc_rs;
 use hudsucker::{certificate_authority::RcgenAuthority, Proxy};
 use log::error;
 use std::fs;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use rustls::crypto::ring;
 use tokio::spawn;
 
 async fn shutdown_signal() {
@@ -29,7 +29,7 @@ pub struct Args {
     #[arg(long, default_value = "ca.cert")]
     ca_cert: String,
 
-    #[arg(long, default_value = "3000")]
+    #[arg(long, default_value = "3149")]
     port: u16,
 }
 
@@ -50,19 +50,23 @@ pub async fn run(args: &Args) -> Result<()> {
     });
 
     let ca = RcgenAuthority::new(key_pair, ca_cert, 1_000, aws_lc_rs::default_provider());
-    let handlers: Vec<Arc<dyn HttpHandler>> = vec![Arc::new(LogHandler), Arc::new(ProxyHandler)];
-    let handler = MultiHandler::new(handlers);
+
+    let chain = Chain::new()
+        .with_request_handler(log_request)
+        .with_request_handler(proxy_request)
+        .with_response_handler(log_response);
+
     let proxy = Proxy::builder()
         .with_addr(SocketAddr::from(([0, 0, 0, 0], args.port)))
         .with_ca(ca)
-        .with_rustls_client(aws_lc_rs::default_provider())
-        .with_http_handler(handler)
+        .with_rustls_client(ring::default_provider())
+        .with_http_handler(chain)
         .with_graceful_shutdown(shutdown_signal())
         .build()
-        .expect("Failed to create proxy");
+        .expect("Failed to create http");
 
     if let Err(e) = proxy.start().await {
-        error!("Failed to start proxy {}", e);
+        error!("Failed to start http {}", e);
     }
 
     Ok(())

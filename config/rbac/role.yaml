@@ -58,7 +58,7 @@ rules:
 - apiGroups:
     - auth-bridge.dev
   resources:
-    - proxypolicies
+    - '*'
   verbs:
     - create
     - delete

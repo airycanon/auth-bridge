@@ -11,3 +11,4 @@ build:
     - image: auth-bridge
       docker:
         dockerfile: Dockerfile
+      context: .

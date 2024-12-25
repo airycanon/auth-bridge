@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: auth-bridge
+  name: controller
+  labels:
+    control-plane: controller
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller
+  template:
+    metadata:
+      labels:
+        control-plane: controller
+    spec:
+      containers:
+        - image: auth-bridge:latest
+          name: controller
+          command:
+            - auth-bridge
+            - controller
+          env:
+            - name: RUST_LOG
+              value: debug
+          resources:
+            limits:
+              cpu: 100m
+              memory: 100Mi
+            requests:
+              cpu: 100m
+              memory: 100Mi
+      serviceAccountName: auth-bridge

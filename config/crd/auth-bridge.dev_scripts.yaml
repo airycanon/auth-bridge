@@ -1,0 +1,82 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: scripts.auth-bridge.dev
+spec:
+  group: auth-bridge.dev
+  names:
+    categories: []
+    kind: Script
+    plural: scripts
+    shortNames: []
+    singular: script
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns: []
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for ScriptSpec via `CustomResource`
+        properties:
+          spec:
+            properties:
+              engine:
+                oneOf:
+                - required:
+                  - rego
+                properties:
+                  rego:
+                    properties:
+                      query:
+                        type: string
+                    required:
+                    - query
+                    type: object
+                type: object
+              source:
+                type: string
+            required:
+            - engine
+            - source
+            type: object
+          status:
+            nullable: true
+            properties:
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    observedGeneration:
+                      default: 0
+                      format: int64
+                      type: integer
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        title: Script
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

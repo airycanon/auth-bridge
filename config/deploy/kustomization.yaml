@@ -1,6 +1,7 @@
 resources:
 - daemonset.yaml
 - service.yaml
+- deployment.yaml
 
 generatorOptions:
   disableNameSuffixHash: true

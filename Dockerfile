@@ -1,4 +1,4 @@
-FROM rust:alpine as Builder
+FROM rust:alpine AS builder
 
 WORKDIR /workspace
 
@@ -11,4 +11,4 @@ FROM alpine:3
 
 COPY --from=builder /workspace/target/release/auth-bridge /bin/auth-bridge
 
-ENTRYPOINT /bin/auth-bridge
+ENTRYPOINT ["/bin/auth-bridge"]

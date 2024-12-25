@@ -47,14 +47,17 @@ impl Store {
         self.metas.get(ip).map(|entry| Arc::clone(entry.value()))
     }
 
-    pub fn insert(&self, pod: &Pod) {
+    pub fn insert(&self, pod: &mut Pod) {
         if pod.metadata.deletion_timestamp.is_some() {
             return;
         }
 
+        pod.annotations_mut()
+            .remove("kubectl.kubernetes.io/last-applied-configuration");
+
         if let Some(ip) = self.get_pod_ip(pod) {
             if !self.metas.contains_key(&ip) {
-                let meta = Meta::from(pod);
+                let meta = Meta::from(&*pod);
                 info!(
                     "pod {:?} added with IP: {:?}",
                     (&meta.namespace, &meta.name),
@@ -91,20 +94,18 @@ impl Store {
         let watcher = watcher(api, watcher::Config::default());
 
         watcher
-            .try_for_each(|event| {
-                async move {
-                    match event {
-                        Event::Init => {
-                            info!("Pod watcher initialized");
-                        }
-                        Event::InitApply(pod) | Event::Apply(pod) => self.insert(&pod),
-                        Event::Delete(pod) => self.delete(&pod),
-                        Event::InitDone => {
-                            info!("Initial pod list completed");
-                        }
+            .try_for_each(|event| async move {
+                match event {
+                    Event::Init => {
+                        info!("Pod watcher initialized");
                     }
-                    Ok(())
+                    Event::InitApply(mut pod) | Event::Apply(mut pod) => self.insert(&mut pod),
+                    Event::Delete(ref pod) => self.delete(pod),
+                    Event::InitDone => {
+                        info!("Initial pod list completed");
+                    }
                 }
+                Ok(())
             })
             .await?;
         Ok(())

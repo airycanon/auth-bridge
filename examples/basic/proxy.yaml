@@ -1,0 +1,16 @@
+apiVersion: auth-bridge.dev/v1alpha1
+kind: Proxy
+metadata:
+  name: basic-auth
+  namespace: auth-bridge-example
+spec:
+  address: "http://nginx.auth-bridge-example"
+  auth:
+    method:
+      basicAuth: {}
+    storage:
+      secretRef:
+        namespace: auth-bridge-example
+        name: basic-auth
+  policies:
+    - script: basic-policy

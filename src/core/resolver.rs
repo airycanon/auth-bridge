@@ -1,9 +1,9 @@
-use crate::apis::auth::Auth;
-use crate::apis::policy::Policy;
+use crate::apis::auth::AuthMethod::Dynamic;
 use crate::apis::proxy::Proxy;
-use crate::core::body::ProxyBody;
+use crate::apis::script::Script;
 use crate::core::filter::ProxyFilter;
 use crate::core::script::input::Input;
+use crate::http::body::ProxyBody;
 use anyhow::Result;
 use bytes::Bytes;
 use http::request::Parts;
@@ -16,33 +16,42 @@ use serde_json::Value;
 #[derive(Default)]
 pub struct ProxyResolver {
     proxy: Option<Proxy>,
-    auth: Option<Auth>,
-    policies: Vec<Policy>,
+    policy_scripts: Vec<Script>,
+    auth_script: Option<Script>,
 }
 
 impl ProxyResolver {
     pub async fn from_uri<F: ProxyFilter>(uri: Uri, filter: F) -> Result<Self> {
+        let mut resolver = Self::default();
+
         let client = Client::try_default().await?;
 
         if let Some(proxy) = Self::get_proxy(&client, uri, &filter).await? {
-            let auth = Self::get_auth(&client, &proxy.spec.auth.name).await?;
+            let namespace = proxy.namespace().unwrap_or("default".to_string());
 
-            let policy_names: Vec<String> = proxy
+            let mut script_names: Vec<String> = proxy
                 .spec
                 .policies
                 .iter()
-                .map(|policy| policy.name.clone())
+                .map(|policy| policy.script.clone())
                 .collect();
-            let policies = Self::get_policies(&client, &policy_names).await?;
 
-            Ok(Self {
-                proxy: Some(proxy),
-                auth: Some(auth),
-                policies,
-            })
-        } else {
-            Ok(Self::default())
+            if let Dynamic { ref script, .. } = proxy.spec.auth.method {
+                script_names.push(script.clone())
+            }
+            let mut scripts = Self::get_scripts(&client, &script_names, namespace.as_str()).await?;
+
+            if let Dynamic { ref script, .. } = proxy.spec.auth.method {
+                resolver.auth_script  = scripts
+                    .iter()
+                    .position(|s| s.name_any() == script.clone())
+                    .map(|i| scripts.swap_remove(i));
+            }
+            resolver.policy_scripts = scripts;
+            resolver.proxy = Some(proxy);
         }
+
+        Ok(resolver)
     }
 
     async fn get_proxy<F: ProxyFilter>(
@@ -52,16 +61,18 @@ impl ProxyResolver {
     ) -> Result<Option<Proxy>> {
         let api = Api::<Proxy>::all(client.clone());
         let proxies = api.list(&ListParams::default()).await?;
-        Ok(proxies.into_iter().find(|proxy| filter.filter(proxy, &uri)))
+
+        let target = proxies.into_iter().find(|proxy| filter.filter(proxy, &uri));
+
+        Ok(target)
     }
 
-    async fn get_auth(client: &Client, name: &str) -> Result<Auth> {
-        let api = Api::<Auth>::all(client.clone());
-        Ok(api.get(name).await?)
-    }
-
-    async fn get_policies(client: &Client, names: &[String]) -> Result<Vec<Policy>> {
-        let api = Api::<Policy>::all(client.clone());
+    async fn get_scripts(
+        client: &Client,
+        names: &[String],
+        namespace: &str,
+    ) -> Result<Vec<Script>> {
+        let api = Api::<Script>::namespaced(client.clone(), namespace);
         let policies = api.list(&ListParams::default()).await?;
 
         Ok(policies
@@ -71,9 +82,9 @@ impl ProxyResolver {
     }
 
     pub fn evaluate(&self, input: &Input) -> Result<bool> {
-        for policy in &self.policies {
-            let engine = policy.spec.engine.get_executor();
-            let result = match engine.execute(policy.spec.script.clone(), input)? {
+        for script in &self.policy_scripts {
+            let engine = script.spec.engine.get_executor();
+            let result = match engine.execute(script.spec.source.clone(), input)? {
                 Value::String(value) => value == "true",
                 Value::Bool(value) => value,
                 value => {
@@ -90,16 +101,14 @@ impl ProxyResolver {
         Ok(true)
     }
 
-    pub async fn apply(&self, parts: Parts, bytes: Bytes) -> Result<(Parts, ProxyBody)> {
-        match (&self.proxy, &self.auth) {
-            (Some(proxy), Some(auth)) => {
-                let driver = proxy.spec.auth.storage.driver()?;
-                let secret_data = driver.get().await?;
-
-                let injector = auth.spec.method.injector(&secret_data)?;
-                Ok(injector.inject(parts, bytes).await?)
-            }
-            _ => Ok((parts, ProxyBody::from(bytes))),
+    pub async fn apply<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> Result<ProxyBody> {
+        if let Some(Proxy{spec,..}) = &self.proxy {
+            let driver = spec.auth.storage.driver()?;
+            let secret_data = driver.get().await?;
+            let injector = spec.auth.method.injector(&secret_data, self.auth_script.clone())?;
+            Ok(injector.inject(parts, bytes).await?)
+        } else {
+            Ok(ProxyBody::from(bytes))
         }
     }
 }

@@ -1,0 +1,19 @@
+apiVersion: auth-bridge.dev/v1alpha1
+kind: Script
+metadata:
+  name: namespace-policy
+  namespace: auth-bridge-example
+spec:
+  source: >-
+    package proxy
+    
+    default allowed = false
+    allowed = true {
+      input.meta.namespace == "default" 
+    }
+    allowed = true {
+      input.meta.name="net-shoot"
+    }
+  engine:
+    rego:
+      query: "data.proxy.allowed"

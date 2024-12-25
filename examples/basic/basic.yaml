@@ -1,0 +1,13 @@
+apiVersion: auth-bridge.dev/v1alpha1
+kind: Script
+metadata:
+  name: basic-policy
+  namespace: auth-bridge-example
+spec:
+  source: |
+    package proxy
+
+    allowed = true
+  engine:
+    rego:
+      query: "data.proxy.allowed"

@@ -2,7 +2,12 @@ use bytes::Bytes;
 use http_body_util::Full;
 use serde_json::{Error, Value};
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::result::Result;
+use hudsucker::Body as ForwardBody;
+use axum::body::Body as ReverseBody;
+use http_body_util::BodyExt;
+use hyper::body::Body;
 
 pub const CONTENT_TYPE_FORM: &str = "application/x-www-form-urlencoded";
 
@@ -24,8 +29,7 @@ impl ProxyBody {
     }
 
     pub fn insert(&mut self, key: String, value: String) -> &mut ProxyBody {
-        self.values
-            .insert(key, Value::String(value));
+        self.values.insert(key, Value::String(value));
         self
     }
 
@@ -71,30 +75,6 @@ impl ProxyBody {
         }
     }
 }
-//
-// impl Body for ProxyBody {
-//     type Data = Bytes;
-//     type Error = ();
-//
-//     fn poll_frame(
-//         mut self: Pin<&mut Self>,
-//         cx: &mut std::task::Context<'_>,
-//     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-//         let bytes = self.get_mut().bytes()?;
-//         let body = Full::from(self);
-//         Pin::new(body.poll_frame(cx).map_err(|e| match e {}))
-//     }
-//
-//     fn is_end_stream(&self) -> bool {
-//         let body = Full::from(self);
-//         body.is_end_stream()
-//     }
-//
-//     fn size_hint(&self) -> SizeHint {
-//         let body = Full::from(self);
-//         body.size_hint()
-//     }
-// }
 
 impl From<Bytes> for ProxyBody {
     fn from(bytes: Bytes) -> Self {
@@ -106,21 +86,21 @@ impl From<Bytes> for ProxyBody {
     }
 }
 
-impl TryFrom<ProxyBody> for hudsucker::Body {
+impl TryFrom<ProxyBody> for ForwardBody {
     type Error = Error;
 
     fn try_from(body: ProxyBody) -> Result<Self, Self::Error> {
         let bytes = body.bytes()?;
-        Ok(hudsucker::Body::from(Full::from(bytes)))
+        Ok(ForwardBody::from(Full::from(bytes)))
     }
 }
 
-impl TryFrom<ProxyBody> for axum::body::Body {
+impl TryFrom<ProxyBody> for ReverseBody {
     type Error = Error;
 
     fn try_from(body: ProxyBody) -> Result<Self, Self::Error> {
         let bytes = body.bytes()?;
-        Ok(axum::body::Body::from(bytes))
+        Ok(ReverseBody::from(bytes))
     }
 }
 
@@ -132,4 +112,9 @@ impl TryFrom<ProxyBody> for Value {
 
         Ok(serde_json::to_value(data).unwrap_or_default())
     }
+}
+
+
+pub trait ProxyBodyExt: Body + Send + Sync + Debug + BodyExt + 'static {
+    fn into_bytes(self) -> Result<Bytes, Self::Error>;
 }

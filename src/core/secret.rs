@@ -1,5 +1,5 @@
 use anyhow::Result;
-use k8s_openapi::api::core::v1::{ObjectReference, Secret};
+use k8s_openapi::api::core::v1::{Secret, SecretReference};
 use kube::Api;
 use std::collections::BTreeMap;
 use std::future::Future;
@@ -25,7 +25,7 @@ pub struct Kubernetes {
 }
 
 impl Kubernetes {
-    pub fn new(secret_ref: ObjectReference) -> Self {
+    pub fn new(secret_ref: SecretReference) -> Self {
         let namespace = secret_ref.namespace.unwrap_or_default();
         let name = secret_ref.name.unwrap_or_default();
 

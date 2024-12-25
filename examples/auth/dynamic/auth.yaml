@@ -1,0 +1,14 @@
+apiVersion: auth-bridge.dev/v1alpha1
+kind: Script
+metadata:
+  name: basic-auth
+  namespace: auth-bridge-example
+spec:
+  source: |
+    package proxy
+
+    value := base64.encode(concat(":", [input.username, input.password]))
+    auth := concat(" ", ["Basic", value])
+  engine:
+    rego:
+      query: "data.proxy.auth"

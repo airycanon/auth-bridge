@@ -2,24 +2,24 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   namespace: auth-bridge
-  name: auth-bridge
+  name: proxy
   labels:
-    control-plane: auth-bridge
+    control-plane: proxy
 spec:
   selector:
     matchLabels:
-      control-plane: auth-bridge
+      control-plane: proxy
   template:
     metadata:
       labels:
-        control-plane: auth-bridge
+        control-plane: proxy
     spec:
       containers:
         - image: auth-bridge:latest
-          name: proxy
+          name: forward-proxy
           command:
             - auth-bridge
-            - proxy
+            - forward-proxy
           args:
             - --ca-key=/certs/tls.key
             - --ca-cert=/certs/tls.crt
@@ -37,10 +37,10 @@ spec:
             - name: cert
               mountPath: /certs
         - image: auth-bridge:latest
-          name: controller
+          name: reverse-proxy
           command:
             - auth-bridge
-            - controller
+            - reverse-proxy
           env:
             - name: RUST_LOG
               value: debug
@@ -56,4 +56,4 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: auth-bridge-proxy-cert
+            secretName: proxy-cert

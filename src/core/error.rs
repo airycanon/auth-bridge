@@ -1,25 +1,40 @@
 use http::{Response, StatusCode};
-use hudsucker::{Body, RequestOrResponse};
+use hyper::body::Body;
+use thiserror::Error;
 
-pub struct ApiError<E>(pub E);
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("missing connect info")]
+    MissingConnectInfo,
 
-impl<E: std::fmt::Display> From<ApiError<E>> for RequestOrResponse {
-    fn from(err: ApiError<E>) -> Self {
-        from_error(err.0, StatusCode::INTERNAL_SERVER_ERROR)
-    }
+    #[error(transparent)]
+    HandleProxy(#[from] anyhow::Error),
+
+    #[error(transparent)]
+    UpstreamError(#[from] hyper_util::client::legacy::Error),
+
+    #[error(transparent)]
+    BuildInput(#[from] serde_json::Error),
+    #[error(transparent)]
+    ProxyResource(#[from] kube::error::Error),
 }
 
-pub struct ParseError<E>(pub E);
+impl<B> From<Error> for Response<B>
+where
+    B: Body + From<String>,
+{
+    fn from(error: Error) -> Self {
+        let status = match error {
+            Error::MissingConnectInfo => StatusCode::NOT_FOUND,
+            Error::UpstreamError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::BuildInput(_) => StatusCode::BAD_REQUEST,
+            Error::ProxyResource(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::HandleProxy(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        };
 
-impl<E: std::fmt::Display> From<ParseError<E>> for RequestOrResponse {
-    fn from(err: ParseError<E>) -> Self {
-        from_error(err.0, StatusCode::BAD_REQUEST)
+        let mut response = Response::new(B::from(error.to_string()));
+        *response.status_mut() = status;
+
+        response
     }
-}
-
-fn from_error<E: std::fmt::Display>(err: E, status_code: StatusCode) -> RequestOrResponse {
-    let error_message = err.to_string();
-    let mut res = Response::new(Body::from(error_message));
-    *res.status_mut() = status_code;
-    RequestOrResponse::Response(res)
 }

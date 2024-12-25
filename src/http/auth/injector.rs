@@ -1,4 +1,4 @@
-use crate::core::body::ProxyBody;
+use crate::http::body::ProxyBody;
 use anyhow::Result;
 use bytes::Bytes;
 use headers::{Authorization, HeaderMapExt};
@@ -8,10 +8,10 @@ use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
 
-type InjectedRequest<'a> = Pin<Box<dyn Future<Output = Result<(Parts, ProxyBody)>> + Send + 'a>>;
+type InjectedRequest<'a> = Pin<Box<dyn Future<Output = Result<ProxyBody>> + Send + 'a>>;
 
 pub trait Injector: Send {
-    fn inject(&self, parts: Parts, bytes: Bytes) -> InjectedRequest;
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a>;
 }
 
 pub struct BasicAuthInjector {
@@ -26,14 +26,14 @@ impl BasicAuthInjector {
 }
 
 impl Injector for BasicAuthInjector {
-    fn inject(&self, mut parts: Parts, bytes: Bytes) -> InjectedRequest {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
         Box::pin(async move {
             parts.headers.typed_insert(Authorization::basic(
                 self.username.as_str(),
                 self.password.as_str(),
             ));
 
-            Ok((parts, ProxyBody::from(bytes)))
+            Ok(ProxyBody::from(bytes))
         })
     }
 }
@@ -49,12 +49,12 @@ impl BearerTokenInjector {
 }
 
 impl Injector for BearerTokenInjector {
-    fn inject(&self, mut parts: Parts, bytes: Bytes) -> InjectedRequest {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
         Box::pin(async move {
             let auth = Authorization::bearer(self.token.as_str())?;
             parts.headers.typed_insert(auth);
 
-            Ok((parts, ProxyBody::from(bytes)))
+            Ok(ProxyBody::from(bytes))
         })
     }
 }
@@ -71,7 +71,7 @@ impl QueryInjector {
 }
 
 impl Injector for QueryInjector {
-    fn inject(&self, mut parts: Parts, bytes: Bytes) -> InjectedRequest {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
         Box::pin(async move {
             let uri = parts.uri.clone();
             let mut uri_parts = uri.clone().into_parts();
@@ -92,7 +92,7 @@ impl Injector for QueryInjector {
             let new_uri = Uri::from_parts(uri_parts)?;
             parts.uri = new_uri;
 
-            Ok((parts, ProxyBody::from(bytes)))
+            Ok(ProxyBody::from(bytes))
         })
     }
 }
@@ -109,7 +109,7 @@ impl HeaderInjector {
 }
 
 impl Injector for HeaderInjector {
-    fn inject(&self, mut parts: Parts, bytes: Bytes) -> InjectedRequest {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
         let key = self.key.clone();
         let value = self.value.clone();
 
@@ -119,7 +119,7 @@ impl Injector for HeaderInjector {
 
             parts.headers.insert(header_name, header_value);
 
-            Ok((parts, ProxyBody::from(bytes)))
+            Ok(ProxyBody::from(bytes))
         })
     }
 }
@@ -136,7 +136,7 @@ impl BodyInjector {
 }
 
 impl Injector for BodyInjector {
-    fn inject(&self, parts: Parts, bytes: Bytes) -> InjectedRequest {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
         Box::pin(async move {
             let content_type = parts
                 .headers
@@ -147,7 +147,7 @@ impl Injector for BodyInjector {
             let mut body = ProxyBody::from_bytes(content_type, bytes);
             body.insert(self.key.to_string(), self.value.to_string());
 
-            Ok((parts, body))
+            Ok(body)
         })
     }
 }

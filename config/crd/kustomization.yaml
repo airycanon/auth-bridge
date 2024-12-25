@@ -1,0 +1,4 @@
+resources:
+- auth-bridge.dev_proxies.yaml
+- auth-bridge.dev_scripts.yaml
+

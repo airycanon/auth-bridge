@@ -1,0 +1,17 @@
+apiVersion: auth-bridge.dev/v1alpha1
+kind: Proxy
+metadata:
+  name: basic-auth
+  namespace: default
+spec:
+  address: "http://nginx.auth-bridge-example"
+  auth:
+    method:
+      generic:
+        position: header
+        key: Authorization
+    storage:
+      raw:
+        Authorization: "Basic YXV0aC11c2VyOmF1dGgtcGFzc3dvcmQ="
+  policies:
+    - script: basic-policy

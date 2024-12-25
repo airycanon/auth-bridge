@@ -1,13 +1,12 @@
-use crate::apis::auth::AuthMethod::{BasicAuth, BearerToken, Dynamic};
+use crate::apis::auth::AuthMethod::{BasicAuth, BearerToken, Dynamic, Generic};
 use crate::apis::condition::conditions;
-use crate::apis::policy::Engine;
-use crate::core::auth::injector::{
+use crate::apis::script::Script;
+use crate::core::script::input::Input;
+use crate::http::auth::injector::{
     BasicAuthInjector, BearerTokenInjector, BodyInjector, HeaderInjector, Injector, QueryInjector,
 };
-use crate::core::script::input::Input;
 use anyhow::anyhow;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
-use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -31,37 +30,12 @@ impl Display for ScriptKey {
     }
 }
 
-// A struct with our chosen Kind will be created for us, using the following kube attrs
-#[derive(CustomResource, Serialize, Deserialize, Debug, Clone, JsonSchema)]
-#[kube(
-    group = "auth-bridge.dev",
-    version = "v1alpha1",
-    kind = "Auth",
-    namespaced,
-    status = "AuthStatus"
-)]
-pub struct AuthSpec {
-    #[serde(flatten)]
-    pub method: AuthMethod,
-}
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub enum AuthPosition {
     Query,
     Header,
     Body,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum AuthMethod {
-    BasicAuth,
-    BearerToken,
-    Dynamic {
-        position: AuthPosition,
-        key: String,
-        script: String,
-        engine: Engine,
-    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
@@ -71,31 +45,69 @@ pub struct AuthStatus {
     pub conditions: Vec<Condition>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum AuthMethod {
+    BasicAuth {},
+    BearerToken {},
+    Generic {
+        position: AuthPosition,
+        key: String,
+    },
+    Dynamic {
+        position: AuthPosition,
+        key: String,
+        script: String,
+    },
+}
+
 impl AuthMethod {
-    pub fn injector(&self, data: &BTreeMap<String, String>) -> anyhow::Result<Box<dyn Injector>> {
+    pub fn injector(
+        &self,
+        data: &BTreeMap<String, String>,
+        script: Option<Script>,
+    ) -> anyhow::Result<Box<dyn Injector>> {
         let injector: Box<dyn Injector> = match self {
-            BasicAuth => {
-                let username = data.get("username").ok_or(anyhow!("username required"))?;
-                let password = data.get("password").ok_or(anyhow!("password required"))?;
+            BasicAuth {} => {
+                let username = data
+                    .get("username")
+                    .ok_or(anyhow!("username required in secret"))?;
+                let password = data
+                    .get("password")
+                    .ok_or(anyhow!("password required in secret"))?;
                 Box::new(BasicAuthInjector::new(username.clone(), password.clone()))
             }
-            BearerToken => {
+            BearerToken {} => {
                 let token = data.get("token").ok_or(anyhow!("token required"))?;
                 Box::new(BearerTokenInjector::new(token.clone()))
             }
+            Generic { position, key } => {
+                let value = data.get(key).ok_or(anyhow!("{} required in secret", key))?;
+
+                let injector: Box<dyn Injector> = match position {
+                    AuthPosition::Query => Box::new(QueryInjector::new(key.clone(), value.clone())),
+                    AuthPosition::Header => {
+                        Box::new(HeaderInjector::new(key.clone(), value.clone()))
+                    }
+                    AuthPosition::Body => Box::new(BodyInjector::new(key.clone(), value.clone())),
+                };
+                injector
+            }
+
             Dynamic {
                 position,
                 key,
-                script,
-                engine,
+                script: script_name,
             } => {
+                let script = script.ok_or(anyhow!("script {} not found", script_name))?;
+
                 let json_value = data
                     .iter()
                     .map(|(key, value)| (key.clone(), Value::String(value.clone())))
                     .collect::<Input>();
 
-                let executor = engine.get_executor();
-                let value = match executor.execute(script.clone(), &json_value)? {
+                let executor = script.spec.engine.get_executor();
+                let value = match executor.execute(script.spec.source, &json_value)? {
                     Value::String(value) => value,
                     unknown => return Err(anyhow!("unsupported value type:{}", unknown)),
                 };
@@ -105,6 +117,7 @@ impl AuthMethod {
                     AuthPosition::Header => Box::new(HeaderInjector::new(key.clone(), value)),
                     AuthPosition::Body => Box::new(BodyInjector::new(key.clone(), value)),
                 };
+
                 injector
             }
         };

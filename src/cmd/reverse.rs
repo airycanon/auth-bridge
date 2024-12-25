@@ -1,5 +1,8 @@
-use crate::proxy::reverse::proxy;
+use crate::http::chain::Chain;
+use crate::http::log::{log_request, log_response};
+use crate::http::proxy::proxy_request;
 use axum::body::Body;
+use axum::extract::State;
 use axum::routing::any;
 use axum::Router;
 use clap::Parser;
@@ -10,7 +13,7 @@ type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
 
 #[derive(Parser, Debug)]
 pub struct Args {
-    #[arg(long, default_value = "4000")]
+    #[arg(long, default_value = "3249")]
     port: u16,
 }
 
@@ -19,9 +22,14 @@ pub async fn run(args: &Args) -> anyhow::Result<()> {
         hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
             .build(HttpConnector::new());
 
+    let chain = Chain::new()
+        .with_request_handler(log_request)
+        .with_request_handler(proxy_request)
+        .with_response_handler(log_response);
+
     let app = Router::new()
-        .route("/", any(proxy::handler))
-        .with_state(client);
+        .route("/", any(any::<Chain<Body>, (), State<Client>>(chain)))
+        .with_state(State(client));
 
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", args.port)).await?;
     println!("listening on {}", listener.local_addr()?);
