@@ -5,18 +5,18 @@ use hudsucker::hyper::{Request, Response};
 use log::info;
 use std::fmt::Debug;
 
-pub fn log_request<B>(_ctx: &Context, req: Request<B>) -> BoxFuture<'static, Result<HttpResult<B>>>
+pub fn log_request<'a, B>(_ctx: &Context, req: Request<B>) -> BoxFuture<'a, Result<HttpResult<B>>>
 where
-    B: Send + Debug + TryFrom<ProxyBody> + 'static,
+    B: Send + Debug + TryFrom<ProxyBody> + 'a,
 {
-    info!("{:?}", req);
+    info!("log request {:?}", req);
     Box::pin(async { Ok(HttpResult::Request(req)) })
 }
 
-pub fn log_response<B>(_ctx: &Context, res: Response<B>) -> BoxFuture<'static, Result<Response<B>>>
+pub fn log_response<'a, B>(_ctx: &Context, res: Response<B>) -> BoxFuture<'a, Result<Response<B>>>
 where
-    B: Send + Debug + TryFrom<ProxyBody> + 'static,
+    B: Send + Debug + TryFrom<ProxyBody> + 'a,
 {
-    info!("{:?}", res);
+    info!("log response {:?}", res);
     Box::pin(async { Ok(res) })
 }

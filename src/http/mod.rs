@@ -1,15 +1,15 @@
-use std::net::SocketAddr;
+use anyhow::Result;
 use futures::future::BoxFuture;
 use http::{Request, Response};
-use anyhow::Result;
+use std::net::SocketAddr;
 
-pub mod chain;
 pub mod auth;
+pub mod chain;
 
 pub mod body;
 
-pub mod proxy;
 pub mod log;
+pub mod proxy;
 
 #[derive(Debug)]
 pub enum HttpResult<B> {
@@ -18,8 +18,8 @@ pub enum HttpResult<B> {
     /// HTTP Response
     Response(Response<B>),
 }
-type RequestHandler<B> = fn(&Context, Request<B>) -> BoxFuture<'static, Result<HttpResult<B>>>;
-type ResponseHandler<B> = fn(&Context, Response<B>) -> BoxFuture<'static, Result<Response<B>>>;
+type RequestHandler<'a, B> = fn(&Context, Request<B>) -> BoxFuture<'a, Result<HttpResult<B>>>;
+type ResponseHandler<'a, B> = fn(&Context, Response<B>) -> BoxFuture<'a, Result<Response<B>>>;
 
 pub struct Context {
     pub addr: SocketAddr,

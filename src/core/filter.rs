@@ -6,6 +6,7 @@ pub trait ProxyFilter {
     fn filter(&self, proxy: &Proxy, uri: &Uri) -> bool;
 }
 
+#[derive(Debug, Default)]
 pub struct AddressFilter;
 impl ProxyFilter for AddressFilter {
     fn filter(&self, proxy: &Proxy, uri: &Uri) -> bool {
@@ -13,15 +14,29 @@ impl ProxyFilter for AddressFilter {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct NameFilter;
 impl ProxyFilter for NameFilter {
     fn filter(&self, proxy: &Proxy, uri: &Uri) -> bool {
-        let host = uri.host().unwrap_or_default();
-        let proxy_name = match host.split('.').next() {
-            Some(name) => name,
-            None => return false,
-        };
+        if let Some(authority) = uri.authority() {
+            let host = authority.to_string();
+            let parts: Vec<&str> = host.split('.').collect();
 
-        proxy.name_any() == proxy_name
+            let proxy_namespace = proxy.namespace().unwrap_or_default();
+            let proxy_name = proxy.name_any();
+
+            println!(
+                "filter proxy, host: {}, proxy: {}/{}",
+                authority, proxy_namespace, proxy_name
+            );
+
+            match parts.as_slice() {
+                [name, namespace, ..] => proxy_namespace == *namespace && proxy_name == *name,
+                [name] => proxy_namespace == "default" && proxy_name == *name,
+                _ => false,
+            }
+        } else {
+            false
+        }
     }
 }

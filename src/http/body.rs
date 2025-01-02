@@ -115,6 +115,6 @@ impl TryFrom<ProxyBody> for Value {
 }
 
 
-pub trait ProxyBodyExt: Body + Send + Sync + Debug + BodyExt + 'static {
+pub trait ProxyBodyExt: Body + Send + Sync + Debug + BodyExt {
     fn into_bytes(self) -> Result<Bytes, Self::Error>;
 }

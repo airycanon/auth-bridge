@@ -1,8 +1,8 @@
 resources:
 - daemonset.yaml
-- service.yaml
+- forward-service.yaml
+- reverse-service.yaml
 - deployment.yaml
 
 generatorOptions:
   disableNameSuffixHash: true
-

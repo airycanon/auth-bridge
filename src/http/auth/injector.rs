@@ -4,14 +4,16 @@ use bytes::Bytes;
 use headers::{Authorization, HeaderMapExt};
 use http::request::Parts;
 use http::{HeaderName, HeaderValue, Uri};
+use std::fmt;
+use std::fmt::Debug;
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
 
-type InjectedRequest<'a> = Pin<Box<dyn Future<Output = Result<ProxyBody>> + Send + 'a>>;
+type InjectedBody<'a> = Pin<Box<dyn Future<Output = Result<ProxyBody>> + Send + 'a>>;
 
-pub trait Injector: Send {
-    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a>;
+pub trait Injector: Send + Debug {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedBody<'a>;
 }
 
 pub struct BasicAuthInjector {
@@ -26,7 +28,7 @@ impl BasicAuthInjector {
 }
 
 impl Injector for BasicAuthInjector {
-    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedBody<'a> {
         Box::pin(async move {
             parts.headers.typed_insert(Authorization::basic(
                 self.username.as_str(),
@@ -49,7 +51,7 @@ impl BearerTokenInjector {
 }
 
 impl Injector for BearerTokenInjector {
-    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedBody<'a> {
         Box::pin(async move {
             let auth = Authorization::bearer(self.token.as_str())?;
             parts.headers.typed_insert(auth);
@@ -71,7 +73,7 @@ impl QueryInjector {
 }
 
 impl Injector for QueryInjector {
-    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedBody<'a> {
         Box::pin(async move {
             let uri = parts.uri.clone();
             let mut uri_parts = uri.clone().into_parts();
@@ -109,7 +111,7 @@ impl HeaderInjector {
 }
 
 impl Injector for HeaderInjector {
-    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedBody<'a> {
         let key = self.key.clone();
         let value = self.value.clone();
 
@@ -136,7 +138,7 @@ impl BodyInjector {
 }
 
 impl Injector for BodyInjector {
-    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedRequest<'a> {
+    fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> InjectedBody<'a> {
         Box::pin(async move {
             let content_type = parts
                 .headers
@@ -149,5 +151,50 @@ impl Injector for BodyInjector {
 
             Ok(body)
         })
+    }
+}
+
+// Todo: use macro
+impl Debug for BasicAuthInjector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BasicAuthInjector")
+            .field("username", &self.username)
+            .field("password", &"*****")
+            .finish()
+    }
+}
+
+impl Debug for BearerTokenInjector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BearerTokenInjector")
+            .field("token", &"*****")
+            .finish()
+    }
+}
+
+impl Debug for QueryInjector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("QueryInjector")
+            .field("key", &self.key)
+            .field("value", &"*****")
+            .finish()
+    }
+}
+
+impl Debug for HeaderInjector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HeaderInjector")
+            .field("key", &self.key)
+            .field("value", &"*****")
+            .finish()
+    }
+}
+
+impl Debug for BodyInjector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BodyInjector")
+            .field("key", &self.key)
+            .field("value", &"*****")
+            .finish()
     }
 }

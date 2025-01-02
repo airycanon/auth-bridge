@@ -12,7 +12,16 @@ spec:
     singular: proxy
   scope: Namespaced
   versions:
-  - additionalPrinterColumns: []
+  - additionalPrinterColumns:
+    - jsonPath: .spec.address
+      name: Address
+      type: string
+    - jsonPath: .status.address.forward.endpoint
+      name: Forward-Address
+      type: string
+    - jsonPath: .status.address.reverse.endpoint
+      name: Reverse-Address
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -113,6 +122,39 @@ spec:
           status:
             nullable: true
             properties:
+              address:
+                nullable: true
+                properties:
+                  forward:
+                    properties:
+                      endpoint:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - endpoint
+                    - name
+                    - namespace
+                    type: object
+                  reverse:
+                    properties:
+                      endpoint:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                    required:
+                    - endpoint
+                    - name
+                    - namespace
+                    type: object
+                required:
+                - forward
+                - reverse
+                type: object
               conditions:
                 items:
                   properties:

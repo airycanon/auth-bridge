@@ -3,7 +3,7 @@ use hyper::body::Body;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum ProxyError {
     #[error("missing connect info")]
     MissingConnectInfo,
 
@@ -19,17 +19,17 @@ pub enum Error {
     ProxyResource(#[from] kube::error::Error),
 }
 
-impl<B> From<Error> for Response<B>
+impl<B> From<ProxyError> for Response<B>
 where
     B: Body + From<String>,
 {
-    fn from(error: Error) -> Self {
+    fn from(error: ProxyError) -> Self {
         let status = match error {
-            Error::MissingConnectInfo => StatusCode::NOT_FOUND,
-            Error::UpstreamError(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::BuildInput(_) => StatusCode::BAD_REQUEST,
-            Error::ProxyResource(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::HandleProxy(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ProxyError::MissingConnectInfo => StatusCode::NOT_FOUND,
+            ProxyError::UpstreamError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ProxyError::BuildInput(_) => StatusCode::BAD_REQUEST,
+            ProxyError::ProxyResource(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ProxyError::HandleProxy(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         let mut response = Response::new(B::from(error.to_string()));

@@ -1,7 +1,9 @@
 use crate::apis::auth::AuthMethod;
 use crate::apis::condition::conditions;
 use crate::core::base_url::BaseUrl;
+use crate::core::env::{Env, SYSTEM_NAMESPACE_ENV};
 use crate::core::secret::{Kubernetes, Raw, Storage};
+use k8s_openapi::api::core::v1::SecretReference;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use kube::CustomResource;
 use schemars::gen::SchemaGenerator;
@@ -9,7 +11,6 @@ use schemars::schema::Schema;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use k8s_openapi::api::core::v1::SecretReference;
 
 // A struct with our chosen Kind will be created for us, using the following kube attrs
 #[derive(CustomResource, Serialize, Deserialize, Debug, Clone, JsonSchema)]
@@ -18,7 +19,10 @@ use k8s_openapi::api::core::v1::SecretReference;
     version = "v1alpha1",
     kind = "Proxy",
     namespaced,
-    status = "ProxyStatus"
+    status = "ProxyStatus",
+    printcolumn = r#"{"name":"Address", "jsonPath": ".spec.address", "type": "string"}"#,
+    printcolumn = r#"{"name":"Forward-Address", "jsonPath": ".status.address.forward.endpoint", "type": "string"}"#,
+    printcolumn = r#"{"name":"Reverse-Address", "jsonPath": ".status.address.reverse.endpoint", "type": "string"}"#
 )]
 pub struct ProxySpec {
     pub address: BaseUrl,
@@ -43,6 +47,13 @@ pub struct ProxyStatus {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[schemars(schema_with = "conditions")]
     pub conditions: Vec<Condition>,
+    pub address: Option<Address>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
+pub struct Address {
+    pub forward: ProxyService,
+    pub reverse: ProxyService,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
@@ -50,16 +61,14 @@ pub struct ProxyStatus {
 pub enum AuthStorage {
     Raw(BTreeMap<String, String>),
     #[schemars(schema_with = "secret_ref")]
-    SecretRef(SecretReference)
+    SecretRef(SecretReference),
 }
 
 impl AuthStorage {
     pub fn driver(&self) -> anyhow::Result<Box<dyn Storage>> {
         let storage: Box<dyn Storage> = match self {
-            AuthStorage::Raw (data) => Box::new(Raw(data.clone())),
-            AuthStorage::SecretRef (secret_ref) => {
-                Box::new(Kubernetes::new(secret_ref.clone()))
-            }
+            AuthStorage::Raw(data) => Box::new(Raw(data.clone())),
+            AuthStorage::SecretRef(secret_ref) => Box::new(Kubernetes::new(secret_ref.clone())),
         };
 
         Ok(storage)
@@ -81,4 +90,30 @@ fn secret_ref(_: &mut SchemaGenerator) -> Schema {
         }
     }))
     .unwrap()
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct ProxyService {
+    name: String,
+    namespace: String,
+    pub(crate) endpoint: String,
+}
+
+impl ProxyService {
+    pub fn new(name: String, namespace: String) -> Self {
+        let endpoint = format!("{}.{}.svc.cluster.local", namespace.clone(), name);
+        Self {
+            namespace,
+            name,
+            endpoint,
+        }
+    }
+
+    pub fn from_env(env: Env) -> Self {
+        Self::new(SYSTEM_NAMESPACE_ENV.value(), env.value())
+    }
+
+    pub fn url(&self) -> String {
+        format!("http://{}", self.endpoint)
+    }
 }

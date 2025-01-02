@@ -6,3 +6,15 @@ resources:
   - ../rbac
   - ../certificate
   - ../crd
+
+vars:
+  - name: FORWARD_PROXY
+    objref:
+      kind: Service
+      version: v1
+      name: forward-proxy
+  - name: REVERSE_PROXY
+    objref:
+      kind: Service
+      version: v1
+      name: reverse-proxy

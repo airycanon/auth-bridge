@@ -1,3 +1,4 @@
+use crate::core::filter::NameFilter;
 use crate::http::chain::Chain;
 use crate::http::log::{log_request, log_response};
 use crate::http::proxy::proxy_request;
@@ -24,14 +25,14 @@ pub async fn run(args: &Args) -> anyhow::Result<()> {
 
     let chain = Chain::new()
         .with_request_handler(log_request)
-        .with_request_handler(proxy_request)
+        .with_request_handler(proxy_request::<_, NameFilter>)
         .with_response_handler(log_response);
 
     let app = Router::new()
-        .route("/", any(any::<Chain<Body>, (), State<Client>>(chain)))
+        .route("/*path", any(any::<Chain<Body>, (), State<Client>>(chain)))
         .with_state(State(client));
 
-    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", args.port)).await?;
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", args.port)).await?;
     println!("listening on {}", listener.local_addr()?);
     axum::serve(
         listener,

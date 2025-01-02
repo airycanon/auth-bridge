@@ -1,45 +1,17 @@
-use anyhow::Result;
-use futures::stream::StreamExt;
-use k8s_openapi::NamespaceResourceScope;
-use kube::{
-    runtime::{watcher, WatchStreamExt},
-    Api, Client, Resource,
-};
-use log::{error, info};
-use serde::de::DeserializeOwned;
-use std::fmt::Debug;
 use crate::apis::proxy::Proxy;
 use crate::apis::script::Script;
+use crate::cmd::{ProxyHandler, ResourceHandler, ScriptHandler};
+use anyhow::{anyhow, Result};
+use futures::TryStreamExt;
+use k8s_openapi::NamespaceResourceScope;
+use kube::runtime::watcher::Event;
+use kube::{runtime::watcher, Api, Client, Resource};
+use log::info;
+use serde::de::DeserializeOwned;
+use std::fmt::Debug;
+use tokio::task::JoinSet;
 
-pub async fn run() -> Result<()> {
-    tokio::spawn(async move {
-        let proxy_handler = |proxy: Proxy| -> Result<()> {
-            info!("Handling Proxy: {:?}", proxy.spec);
-            Ok(())
-        };
-
-        if let Err(e) = watch_resource::<Proxy>(proxy_handler).await {
-            error!("ProxyAuth watcher error: {}", e);
-        }
-    });
-
-    tokio::spawn(async move {
-        let script_handler = |script: Script| -> Result<()> {
-            info!("Handling ProxyPolicy: {:?}", script.spec);
-            Ok(())
-        };
-
-        if let Err(e) = watch_resource::<Script>(script_handler).await {
-            error!("ProxyPolicy watcher error: {}", e);
-        }
-    });
-
-    tokio::signal::ctrl_c().await?;
-
-    Ok(())
-}
-
-async fn watch_resource<T>(handler: impl Fn(T) -> Result<()> + Send + 'static) -> Result<()>
+async fn watch_resource<'a, T, H>(handler: H) -> Result<()>
 where
     T: Resource<Scope = NamespaceResourceScope>
         + DeserializeOwned
@@ -48,10 +20,11 @@ where
         + Send
         + Sync
         + 'static,
+    H: ResourceHandler<T> + Send + Sync,
     <T as Resource>::DynamicType: Default,
 {
     let client = Client::try_default().await?;
-    let api = Api::<T>::default_namespaced(client);
+    let api = Api::<T>::all(client);
     let use_watchlist = std::env::var("WATCHLIST")
         .map(|s| s == "1")
         .unwrap_or(false);
@@ -61,16 +34,58 @@ where
         watcher::Config::default()
     };
 
-    let mut stream = watcher(api, wc).applied_objects().boxed();
-    while let Some(event) = stream.next().await {
-        match event {
-            Ok(p) => {
-                if let Err(e) = handler(p) {
-                    error!("Handler error: {}", e);
+    watcher(api, wc)
+        .try_for_each(|event| async {
+            match event {
+                Event::Init => {
+                    info!("Pod watcher initialized");
+                    Ok(())
+                }
+                Event::InitApply(t) | Event::Apply(t) => {
+                    handler.handle_create(t).await.map_err(watcher::Error::WatchFailed)
+                }
+                Event::Delete(t) => handler.handle_delete(t).await.map_err(watcher::Error::WatchFailed),
+
+                Event::InitDone => {
+                    info!("Initial pod list completed");
+                    Ok(())
                 }
             }
-            Err(e) => error!("Watch error: {}", e),
+        })
+        .await?;
+
+    Ok(())
+}
+
+pub async fn run() -> Result<()> {
+    let mut set: JoinSet<Result<()>> = JoinSet::new();
+    let client = Client::try_default().await?;
+    let proxy_client = client.clone();
+
+    set.spawn(async move {
+        let handler = ProxyHandler::new(proxy_client);
+        watch_resource::<Proxy, _>(handler).await?;
+        Ok(())
+    });
+
+    set.spawn(async move {
+        let handler = ScriptHandler::new();
+        watch_resource::<Script, _>(handler).await?;
+        Ok(())
+    });
+
+    while let Some(result) = set.join_next().await {
+        match result {
+            Ok(Ok(())) => continue,
+            Ok(Err(e)) => {
+                return Err(anyhow!("Task run failed: {}", e));
+            }
+            Err(e) => {
+                return Err(anyhow!("Task join failed: {}", e));
+            }
         }
     }
+
+    tokio::signal::ctrl_c().await?;
     Ok(())
 }

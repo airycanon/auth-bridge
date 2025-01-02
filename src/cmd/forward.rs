@@ -1,3 +1,4 @@
+use crate::core::filter::AddressFilter;
 use crate::core::pod::store::Store;
 use crate::http::chain::Chain;
 use crate::http::log::{log_request, log_response};
@@ -8,9 +9,9 @@ use hudsucker::rcgen::{CertificateParams, KeyPair};
 use hudsucker::rustls::crypto::aws_lc_rs;
 use hudsucker::{certificate_authority::RcgenAuthority, Proxy};
 use log::error;
+use rustls::crypto::ring;
 use std::fs;
 use std::net::SocketAddr;
-use rustls::crypto::ring;
 use tokio::spawn;
 
 async fn shutdown_signal() {
@@ -53,7 +54,7 @@ pub async fn run(args: &Args) -> Result<()> {
 
     let chain = Chain::new()
         .with_request_handler(log_request)
-        .with_request_handler(proxy_request)
+        .with_request_handler(proxy_request::<_, AddressFilter>)
         .with_response_handler(log_response);
 
     let proxy = Proxy::builder()

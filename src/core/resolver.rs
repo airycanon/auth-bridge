@@ -10,7 +10,7 @@ use http::request::Parts;
 use http::Uri;
 use kube::api::ListParams;
 use kube::{Api, Client, ResourceExt};
-use log::error;
+use log::{debug, error, info};
 use serde_json::Value;
 
 #[derive(Default)]
@@ -29,6 +29,8 @@ impl ProxyResolver {
         if let Some(proxy) = Self::get_proxy(&client, uri, &filter).await? {
             let namespace = proxy.namespace().unwrap_or("default".to_string());
 
+            info!("proxy matched, proxy: {}/{}", namespace, proxy.name_any());
+
             let mut script_names: Vec<String> = proxy
                 .spec
                 .policies
@@ -42,7 +44,7 @@ impl ProxyResolver {
             let mut scripts = Self::get_scripts(&client, &script_names, namespace.as_str()).await?;
 
             if let Dynamic { ref script, .. } = proxy.spec.auth.method {
-                resolver.auth_script  = scripts
+                resolver.auth_script = scripts
                     .iter()
                     .position(|s| s.name_any() == script.clone())
                     .map(|i| scripts.swap_remove(i));
@@ -102,10 +104,23 @@ impl ProxyResolver {
     }
 
     pub async fn apply<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> Result<ProxyBody> {
-        if let Some(Proxy{spec,..}) = &self.proxy {
+        if let Some(Proxy { spec, .. }) = &self.proxy {
             let driver = spec.auth.storage.driver()?;
             let secret_data = driver.get().await?;
-            let injector = spec.auth.method.injector(&secret_data, self.auth_script.clone())?;
+
+            if !spec.address.eq(&parts.uri) {
+                let old = parts.uri.clone();
+                parts.uri = spec.address.replace(&parts.uri)?;
+                debug!("replace target uri, old: {}, new: {}", old, parts.uri)
+            }
+
+            let injector = spec
+                .auth
+                .method
+                .injector(&secret_data, self.auth_script.clone())?;
+
+            debug!("injector created: {:?}", injector);
+
             Ok(injector.inject(parts, bytes).await?)
         } else {
             Ok(ProxyBody::from(bytes))

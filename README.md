@@ -5,7 +5,7 @@ tools such as GitLab and Harbor while automatically injecting specified credenti
 
 ## Features
 
-- Proxy access for Kubernetes Pods
+- Dual-mode proxy support (forward/reverse) with automatic endpoint generation
 - Multiple authentication methods support (Basic Auth, Bearer Token, Generic and Dynamic Auth)
 - Policy-based credential injection
 - Flexible authentication injection positions (header, query, body)
@@ -55,12 +55,24 @@ This guide will help you set up Auth-Bridge to proxy requests to an Nginx server
   Now any pod using the Auth-Bridge proxy will automatically have basic authentication injected when accessing the Nginx
     server.  
 
+### Test the Proxy Access
 
-* Test the access to nginx server
+* Using forward proxy:
   ```shell
-  kubectl exec -it test-client -- curl http://nginx.auth-bridge-example/auth
+  # Direct access to target service with proxy setting
+  kubectl exec -it test-client -- curl -x http://forward-proxy.auth-bridge:80 http://nginx.auth-bridge-example/auth
   ```
-  Should return the `Hello from auth path` message.
+
+* Using reverse proxy (access through proxy endpoint):
+  ```shell
+  # Get reverse proxy endpoint
+  ENDPOINT=$(kubectl get proxy -n auth-bridge-example basic-auth -o jsonpath='{.status.address.reverse.endpoint}')
+  
+  # Replace target host with reverse proxy endpoint
+  kubectl exec -it test-client -- curl http://${ENDPOINT}/auth
+  ```
+
+Both methods should return `Hello from auth path` message.
 
 ## Configuration
 

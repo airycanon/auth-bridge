@@ -1,3 +1,6 @@
+use crate::core::error::ProxyError;
+use crate::core::error::ProxyError::MissingConnectInfo;
+use crate::http::body::ProxyBody;
 use crate::http::{Context, RequestHandler, ResponseHandler};
 use crate::http::{HttpResult, Result};
 use axum::body::Body as ReverseBody;
@@ -9,15 +12,13 @@ use hudsucker::{Body as ForwardBody, HttpContext, RequestOrResponse};
 use hyper_util::client::legacy::connect::HttpConnector;
 use std::fmt::Debug;
 use std::net::SocketAddr;
-use crate::core::error::Error;
-use crate::core::error::Error::MissingConnectInfo;
-use crate::http::body::ProxyBody;
+use log::debug;
 
 type Client = hyper_util::client::legacy::Client<HttpConnector, ReverseBody>;
 
 pub struct Chain<B> {
-    request_handlers: Vec<RequestHandler<B>>,
-    response_handlers: Vec<ResponseHandler<B>>,
+    request_handlers: Vec<RequestHandler<'static, B>>,
+    response_handlers: Vec<ResponseHandler<'static, B>>,
 }
 
 impl<B> Chain<B>
@@ -31,12 +32,12 @@ where
         }
     }
 
-    pub fn with_request_handler(mut self, handler: RequestHandler<B>) -> Self {
+    pub fn with_request_handler(mut self, handler: RequestHandler<'static, B>) -> Self {
         self.request_handlers.push(handler);
         self
     }
 
-    pub fn with_response_handler(mut self, handler: ResponseHandler<B>) -> Self {
+    pub fn with_response_handler(mut self, handler: ResponseHandler<'static, B>) -> Self {
         self.response_handlers.push(handler);
         self
     }
@@ -53,6 +54,8 @@ where
                 response => return Ok(response),
             }
         }
+        debug!("handler process request done: {:?}", current);
+
         Ok(HttpResult::Request(current))
     }
 
@@ -65,6 +68,9 @@ where
         for handler in &self.response_handlers {
             current = handler(context, current).await?;
         }
+
+        debug!("handler process response done: {:?}", current);
+
         Ok(current)
     }
 }
@@ -99,7 +105,7 @@ impl hudsucker::HttpHandler for Chain<ForwardBody> {
         match self.process_request(&context, request).await {
             Ok(HttpResult::Request(request)) => RequestOrResponse::Request(request),
             Ok(HttpResult::Response(response)) => RequestOrResponse::Response(response),
-            Err(err) => RequestOrResponse::Response(Error::from(err).into()),
+            Err(err) => RequestOrResponse::Response(ProxyError::from(err).into()),
         }
     }
 
@@ -111,7 +117,7 @@ impl hudsucker::HttpHandler for Chain<ForwardBody> {
         let context = Context::new(ctx.client_addr);
         self.process_response(&context, response)
             .await
-            .unwrap_or_else(|err| Error::from(err).into())
+            .unwrap_or_else(|err| ProxyError::from(err).into())
     }
 }
 
@@ -130,15 +136,15 @@ impl<T> axum::handler::Handler<T, State<Client>> for Chain<ReverseBody> {
             let response = match self.process_request(&context, request).await {
                 Ok(HttpResult::Request(request)) => match client.request(request).await {
                     Ok(response) => response.into_response(),
-                    Err(err) => return Error::from(err).into(),
+                    Err(err) => return ProxyError::from(err).into(),
                 },
                 Ok(HttpResult::Response(response)) => response.into_response(),
-                Err(err) => Error::from(err).into(),
+                Err(err) => ProxyError::from(err).into(),
             };
 
             match self.process_response(&context, response).await {
                 Ok(response) => response.into_response(),
-                Err(err) => Error::from(err).into(),
+                Err(err) => ProxyError::from(err).into(),
             }
         })
     }

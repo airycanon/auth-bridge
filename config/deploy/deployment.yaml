@@ -23,6 +23,14 @@ spec:
           env:
             - name: RUST_LOG
               value: debug
+            - name: SYSTEM_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: FORWARD_PROXY
+              value: $(FORWARD_PROXY)
+            - name: REVERSE_PROXY
+              value: $(REVERSE_PROXY)
           resources:
             limits:
               cpu: 100m
