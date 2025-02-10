@@ -18,13 +18,13 @@ crossbeam-skiplist = "0.1"
 lazy_static = "1.5"
 regorus = "0.2"
 
-kube = { version = "0.97", features = ["runtime", "derive"] }
-k8s-openapi = { version = "0.23", features = ["latest"] }
+kube = { version = "0.98", features = ["runtime", "derive"] }
+k8s-openapi = { version = "0.24", features = ["latest"] }
 serde = { version = "1.0", features = ["derive"] }
 schemars = "0.8"
 
 hudsucker = "0.23"
-axum = "0.7"
+axum = "0.8"
 
 hyper-util = "0.1"
 tokio = { version = "1.41", features = ["macros", "rt", "rt-multi-thread"] }

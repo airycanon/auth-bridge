@@ -1,7 +1,8 @@
 use crate::core::error::ProxyError;
 use crate::core::error::ProxyError::MissingConnectInfo;
 use crate::http::body::ProxyBody;
-use crate::http::{Context, RequestHandler, ResponseHandler};
+use crate::http::handlers::HttpHandler;
+use crate::http::Context;
 use crate::http::{HttpResult, Result};
 use axum::body::Body as ReverseBody;
 use axum::extract::{ConnectInfo, State};
@@ -10,92 +11,103 @@ use futures::future::BoxFuture;
 use http::{Request, Response};
 use hudsucker::{Body as ForwardBody, HttpContext, RequestOrResponse};
 use hyper_util::client::legacy::connect::HttpConnector;
-use std::fmt::Debug;
-use std::net::SocketAddr;
 use log::debug;
+use std::fmt::Debug;
+use std::future::Future;
+use std::marker::PhantomData;
+use std::net::SocketAddr;
+use std::sync::Arc;
 
 type Client = hyper_util::client::legacy::Client<HttpConnector, ReverseBody>;
-
-pub struct Chain<B> {
-    request_handlers: Vec<RequestHandler<'static, B>>,
-    response_handlers: Vec<ResponseHandler<'static, B>>,
-}
-
-impl<B> Chain<B>
+pub struct Chain<B, H>
 where
-    B: Send + Debug + TryFrom<ProxyBody> + 'static,
+    B: Send + Debug + 'static,
+    H: HttpHandler<B> + ?Sized + Send + Sync + 'static,
 {
-    pub fn new() -> Self {
+    handlers: Vec<Arc<H>>,
+    phantom: PhantomData<B>,
+}
+
+impl<B, H> Chain<B, H>
+where
+    B: Send + Debug + TryFrom<ProxyBody> + 'static,
+    H: HttpHandler<B> + ?Sized + Send + Sync + 'static,
+{
+    pub fn new(handlers: Vec<Arc<H>>) -> Self {
         Self {
-            request_handlers: Vec::new(),
-            response_handlers: Vec::new(),
+            handlers,
+            phantom: Default::default(),
         }
     }
 
-    pub fn with_request_handler(mut self, handler: RequestHandler<'static, B>) -> Self {
-        self.request_handlers.push(handler);
-        self
-    }
-
-    pub fn with_response_handler(mut self, handler: ResponseHandler<'static, B>) -> Self {
-        self.response_handlers.push(handler);
-        self
-    }
-
-    async fn process_request(
-        &self,
-        context: &Context,
+    fn process_request<'a>(
+        &'a self,
+        ctx: &'a Context,
         request: Request<B>,
-    ) -> Result<HttpResult<B>> {
-        let mut current = request;
-        for handler in &self.request_handlers {
-            match handler(context, current).await? {
-                HttpResult::Request(req) => current = req,
-                response => return Ok(response),
+    ) -> impl Future<Output = Result<HttpResult<B>>> + Send + 'a {
+        let handlers = self.handlers.clone();
+        async move {
+            let mut current = request;
+            for handler in handlers {
+                match handler.handle_request(ctx, current).await? {
+                    HttpResult::Request(req) => current = req,
+                    response => return Ok(response),
+                }
             }
+            debug!("handler process request done: {:?}", current);
+            Ok(HttpResult::Request(current))
         }
-        debug!("handler process request done: {:?}", current);
-
-        Ok(HttpResult::Request(current))
     }
 
-    async fn process_response(
-        &self,
-        context: &Context,
+    fn process_response<'a>(
+        &'a self,
+        ctx: &'a Context,
         response: Response<B>,
-    ) -> Result<Response<B>> {
-        let mut current = response;
-        for handler in &self.response_handlers {
-            current = handler(context, current).await?;
+    ) -> impl Future<Output = Result<Response<B>>> + Send + 'a {
+        let handlers = self.handlers.clone();
+
+        async move {
+            let mut current = response;
+            for handler in handlers {
+                current = handler.handle_response(ctx, current).await?;
+            }
+            debug!("handler process response done: {:?}", current);
+            Ok(current)
         }
-
-        debug!("handler process response done: {:?}", current);
-
-        Ok(current)
     }
 }
 
-impl<B> Default for Chain<B>
+impl<B, H> Default for Chain<B, H>
 where
     B: Send + Debug + TryFrom<ProxyBody> + 'static,
+    H: HttpHandler<B> + ?Sized + Send + Sync + 'static,
 {
     fn default() -> Self {
-        Self::new()
+        Self::new(Vec::new())
     }
 }
 
-// 实现 Clone
-impl<B> Clone for Chain<B> {
+impl<B, H> Clone for Chain<B, H>
+where
+    B: Send + Debug + TryFrom<ProxyBody> + 'static,
+    H: HttpHandler<B> + ?Sized + Send + Sync + 'static,
+{
     fn clone(&self) -> Self {
-        Self {
-            request_handlers: self.request_handlers.clone(),
-            response_handlers: self.response_handlers.clone(),
-        }
+        Self::new(self.handlers.clone())
     }
 }
 
-// 为 hudsucker 实现
-impl hudsucker::HttpHandler for Chain<ForwardBody> {
+unsafe impl<B, H> Sync for Chain<B, H>
+where
+    B: Send + Debug + TryFrom<ProxyBody> + 'static,
+    H: HttpHandler<B> + ?Sized + Send + Sync + 'static,
+{
+}
+
+pub type ReverseChain = Chain<ReverseBody, dyn HttpHandler<ReverseBody>>;
+pub type ForwardChain = Chain<ForwardBody, dyn HttpHandler<ForwardBody>>;
+
+impl hudsucker::HttpHandler for ForwardChain {
     async fn handle_request(
         &mut self,
         ctx: &HttpContext,
@@ -121,8 +133,7 @@ impl hudsucker::HttpHandler for Chain<ForwardBody> {
     }
 }
 
-// 为 axum 实现
-impl<T> axum::handler::Handler<T, State<Client>> for Chain<ReverseBody> {
+impl<T> axum::handler::Handler<T, State<Client>> for ReverseChain {
     type Future = BoxFuture<'static, Response<ReverseBody>>;
 
     fn call(self, request: Request<ReverseBody>, State(client): State<Client>) -> Self::Future {

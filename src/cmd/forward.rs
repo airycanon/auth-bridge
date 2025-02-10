@@ -1,17 +1,19 @@
 use crate::core::filter::AddressFilter;
 use crate::core::pod::store::Store;
-use crate::http::chain::Chain;
-use crate::http::log::{log_request, log_response};
-use crate::http::proxy::proxy_request;
+use crate::http::chain::ForwardChain;
+use crate::http::handlers::log::LogHandler;
+use crate::http::handlers::proxy::ProxyHandler;
+use crate::http::handlers::HttpHandler;
 use anyhow::Result;
 use clap::Parser;
 use hudsucker::rcgen::{CertificateParams, KeyPair};
 use hudsucker::rustls::crypto::aws_lc_rs;
-use hudsucker::{certificate_authority::RcgenAuthority, Proxy};
+use hudsucker::{certificate_authority::RcgenAuthority, Body, Proxy};
 use log::error;
 use rustls::crypto::ring;
 use std::fs;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio::spawn;
 
 async fn shutdown_signal() {
@@ -52,10 +54,12 @@ pub async fn run(args: &Args) -> Result<()> {
 
     let ca = RcgenAuthority::new(key_pair, ca_cert, 1_000, aws_lc_rs::default_provider());
 
-    let chain = Chain::new()
-        .with_request_handler(log_request)
-        .with_request_handler(proxy_request::<_, AddressFilter>)
-        .with_response_handler(log_response);
+    let handlers: Vec<Arc<dyn HttpHandler<Body>>> = vec![
+        Arc::new(LogHandler::<Body>::new()),
+        Arc::new(ProxyHandler::<Body, AddressFilter>::new()),
+    ];
+
+    let chain = ForwardChain::new(handlers);
 
     let proxy = Proxy::builder()
         .with_addr(SocketAddr::from(([0, 0, 0, 0], args.port)))

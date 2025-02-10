@@ -1,7 +1,8 @@
 use crate::core::filter::NameFilter;
-use crate::http::chain::Chain;
-use crate::http::log::{log_request, log_response};
-use crate::http::proxy::proxy_request;
+use crate::http::chain::ReverseChain;
+use crate::http::handlers::log::LogHandler;
+use crate::http::handlers::proxy::ProxyHandler;
+use crate::http::handlers::HttpHandler;
 use axum::body::Body;
 use axum::extract::State;
 use axum::routing::any;
@@ -9,6 +10,7 @@ use axum::Router;
 use clap::Parser;
 use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
 
@@ -23,13 +25,17 @@ pub async fn run(args: &Args) -> anyhow::Result<()> {
         hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
             .build(HttpConnector::new());
 
-    let chain = Chain::new()
-        .with_request_handler(log_request)
-        .with_request_handler(proxy_request::<_, NameFilter>)
-        .with_response_handler(log_response);
+    let handlers: Vec<Arc<dyn HttpHandler<Body>>> = vec![
+        Arc::new(LogHandler::<Body>::new()),
+        Arc::new(ProxyHandler::<Body, NameFilter>::new()),
+    ];
 
+    let chain = ReverseChain::new(handlers);
     let app = Router::new()
-        .route("/*path", any(any::<Chain<Body>, (), State<Client>>(chain)))
+        .route(
+            "/{*path}",
+            any(any::<ReverseChain, (), State<Client>>(chain)),
+        )
         .with_state(State(client));
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", args.port)).await?;
