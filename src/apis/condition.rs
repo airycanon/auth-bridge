@@ -1,4 +1,4 @@
-use schemars::gen::SchemaGenerator;
+use schemars::r#gen::SchemaGenerator;
 use schemars::schema::Schema;
 
 pub(crate) fn conditions(_: &mut SchemaGenerator) -> Schema {
@@ -25,5 +25,5 @@ pub(crate) fn conditions(_: &mut SchemaGenerator) -> Schema {
             ],
         },
     }))
-        .unwrap()
+    .unwrap()
 }

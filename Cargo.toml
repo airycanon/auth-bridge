@@ -1,7 +1,7 @@
 [package]
 name = "auth-bridge"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 tracing-subscriber = "0.3"
@@ -31,9 +31,9 @@ tokio = { version = "1.41", features = ["macros", "rt", "rt-multi-thread"] }
 hyper = "1.5"
 http-body-util = "0.1"
 bytes = "1.9"
-headers = "0.4.0"
+headers = "0.4"
 http = "1.1"
 form_urlencoded = "1.2"
 http-body = "1.0.1"
-rustls = { version = "0.23.20", features = ["ring"] }
+rustls = { version = "0.23", features = ["ring"] }
 serde_yaml = "0.9"

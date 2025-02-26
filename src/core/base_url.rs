@@ -17,10 +17,9 @@ impl BaseUrl {
 
 impl PartialEq<Uri> for BaseUrl {
     fn eq(&self, uri: &Uri) -> bool {
-        if let Ok(addr_uri) = self.0.parse::<Uri>() {
-            addr_uri.scheme() == uri.scheme() && addr_uri.host() == uri.host()
-        } else {
-            false
+        match self.0.parse::<Uri>() {
+            Ok(addr_uri) => addr_uri.scheme() == uri.scheme() && addr_uri.host() == uri.host(),
+            _ => false,
         }
     }
 }
