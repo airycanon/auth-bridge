@@ -1,41 +1,24 @@
 use anyhow::Result;
-use crossbeam_skiplist::SkipMap;
 use futures::TryStreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::runtime::watcher;
 use kube::runtime::watcher::Event;
 use kube::{Api, Client, ResourceExt};
 use log::info;
-use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 
-#[derive(Serialize)]
-pub struct Meta {
-    pub name: String,
-    pub namespace: String,
-    pub labels: BTreeMap<String, String>,
-    pub annotations: BTreeMap<String, String>,
-}
 
-impl From<&Pod> for Meta {
-    fn from(pod: &Pod) -> Self {
-        Meta {
-            namespace: pod.namespace().unwrap(),
-            name: pod.name_any(),
-            labels: pod.labels().clone(),
-            annotations: pod.annotations().clone(),
-        }
-    }
-}
 
 use once_cell::sync::Lazy;
+use crate::core::pod::meta::Meta;
 
 static STORE: Lazy<Store> = Lazy::new(Store::default);
 
 #[derive(Default)]
 pub struct Store {
-    metas: Arc<SkipMap<String, Arc<Meta>>>,
+    metas: Arc<RwLock<HashMap<String, Arc<Meta>>>>,
 }
 
 impl Store {
@@ -44,7 +27,10 @@ impl Store {
     }
 
     pub fn find(&self, ip: &String) -> Option<Arc<Meta>> {
-        self.metas.get(ip).map(|entry| Arc::clone(entry.value()))
+        self.metas
+            .read()
+            .ok()
+            .and_then(|metas| metas.get(ip).map(Arc::clone))
     }
 
     pub fn insert(&self, pod: &mut Pod) {
@@ -56,27 +42,30 @@ impl Store {
             .remove("kubectl.kubernetes.io/last-applied-configuration");
 
         if let Some(ip) = self.get_pod_ip(pod) {
-            if !self.metas.contains_key(&ip) {
-                let meta = Meta::from(&*pod);
-                info!(
-                    "pod {:?} added with IP: {:?}",
-                    (&meta.namespace, &meta.name),
-                    &ip
-                );
-                self.metas.insert(ip, Arc::new(meta));
+            if let Ok(mut metas) = self.metas.write() {
+                if !metas.contains_key(&ip) {
+                    let meta = Meta::from(&*pod);
+                    info!(
+                        "pod {:?} added with IP: {:?}",
+                        (&meta.namespace, &meta.name),
+                        &ip
+                    );
+                    metas.insert(ip, Arc::new(meta));
+                }
             }
         }
     }
 
     pub fn delete(&self, pod: &Pod) {
         if let Some(ip) = self.get_pod_ip(pod) {
-            if let Some(entry) = self.metas.remove(&ip) {
-                let meta = entry.value();
-                info!(
-                    "pod {:?} deleted with IP: {:?}",
-                    (&meta.namespace, &meta.name),
-                    &ip
-                );
+            if let Ok(mut metas) = self.metas.write() {
+                if let Some(meta) = metas.remove(&ip) {
+                    info!(
+                        "pod {:?} deleted with IP: {:?}",
+                        (&meta.namespace, &meta.name),
+                        &ip
+                    );
+                }
             }
         }
     }

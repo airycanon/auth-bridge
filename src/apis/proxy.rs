@@ -6,8 +6,7 @@ use crate::core::secret::{Kubernetes, Raw, Storage};
 use k8s_openapi::api::core::v1::SecretReference;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use kube::CustomResource;
-use schemars::r#gen::SchemaGenerator;
-use schemars::schema::Schema;
+use schemars::{Schema, SchemaGenerator};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -113,6 +112,7 @@ impl ProxyService {
         Self::new(SYSTEM_NAMESPACE_ENV.value(), env.value())
     }
 
+    #[allow(dead_code)]
     pub fn url(&self) -> String {
         format!("http://{}", self.endpoint)
     }

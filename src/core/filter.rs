@@ -6,7 +6,8 @@ pub trait ProxyFilter {
     fn filter(&self, proxy: &Proxy, uri: &Uri) -> bool;
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
+#[allow(dead_code)]
 pub struct AddressFilter;
 impl ProxyFilter for AddressFilter {
     fn filter(&self, proxy: &Proxy, uri: &Uri) -> bool {
@@ -14,7 +15,7 @@ impl ProxyFilter for AddressFilter {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct NameFilter;
 impl ProxyFilter for NameFilter {
     fn filter(&self, proxy: &Proxy, uri: &Uri) -> bool {

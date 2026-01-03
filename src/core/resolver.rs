@@ -13,7 +13,7 @@ use kube::{Api, Client, ResourceExt};
 use log::{debug, error, info};
 use serde_json::Value;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ProxyResolver {
     proxy: Option<Proxy>,
     policy_scripts: Vec<Script>,
@@ -21,7 +21,7 @@ pub struct ProxyResolver {
 }
 
 impl ProxyResolver {
-    pub async fn from_uri<F: ProxyFilter>(uri: Uri, filter: F) -> Result<Self> {
+    pub async fn from_uri<F: ProxyFilter>(uri: &Uri, filter: F) -> Result<Self> {
         let mut resolver = Self::default();
 
         let client = Client::try_default().await?;
@@ -58,7 +58,7 @@ impl ProxyResolver {
 
     async fn get_proxy<F: ProxyFilter>(
         client: &Client,
-        uri: Uri,
+        uri: &Uri,
         filter: &F,
     ) -> Result<Option<Proxy>> {
         let api = Api::<Proxy>::all(client.clone());
@@ -103,7 +103,11 @@ impl ProxyResolver {
         Ok(true)
     }
 
-    pub async fn apply<'a>(&'a self, parts: &'a mut Parts, bytes: Bytes) -> Result<ProxyBody> {
+    pub async fn apply<'a>(
+        &'a self,
+        parts: &'a mut Parts,
+        bytes: &'a Bytes,
+    ) -> Result<Option<ProxyBody>> {
         if let Some(Proxy { spec, .. }) = &self.proxy {
             let driver = spec.auth.storage.driver()?;
             let secret_data = driver.get().await?;
@@ -123,7 +127,9 @@ impl ProxyResolver {
 
             Ok(injector.inject(parts, bytes).await?)
         } else {
-            Ok(ProxyBody::from(bytes))
+            Ok(None)
         }
     }
+
+    // requires_body removed: decision now always carries bytes, and inject handles body updates lazily.
 }

@@ -1,16 +1,15 @@
 use crate::core::filter::NameFilter;
-use crate::http::chain::Chain;
-use crate::http::log::{log_request, log_response};
-use crate::http::proxy::proxy_request;
-use axum::body::Body;
-use axum::extract::State;
-use axum::routing::any;
-use axum::Router;
+use crate::core::layer::decision::DecisionLayer;
+use crate::core::layer::inject::InjectLayer;
+use crate::core::layer::normalize::NormalizeLayer;
+use crate::http::proxy::{ProxyState, new_http_proxy};
+use anyhow::Error;
 use clap::Parser;
-use hyper_util::{client::legacy::connect::HttpConnector, rt::TokioExecutor};
-use std::net::SocketAddr;
-
-type Client = hyper_util::client::legacy::Client<HttpConnector, Body>;
+use rama::{
+    Layer, http::server::HttpServer, layer::AddInputExtensionLayer,
+    net::stream::layer::http::BodyLimitLayer, rt::Executor, tcp::server::TcpListener,
+};
+use std::{sync::Arc, time::Duration};
 
 #[derive(Parser, Debug)]
 pub struct Args {
@@ -19,26 +18,46 @@ pub struct Args {
 }
 
 pub async fn run(args: &Args) -> anyhow::Result<()> {
-    let client: Client =
-        hyper_util::client::legacy::Client::<(), ()>::builder(TokioExecutor::new())
-            .build(HttpConnector::new());
+    let state = ProxyState {
+        tls_acceptor: None,
+        user_agent: Arc::new(rama::ua::profile::UserAgentDatabase::try_embedded()?),
+    };
 
-    let chain = Chain::new()
-        .with_request_handler(log_request)
-        .with_request_handler(proxy_request::<_, NameFilter>)
-        .with_response_handler(log_response);
+    let graceful = rama::graceful::Shutdown::default();
+    let port = args.port;
+    let reverse_state = state.clone();
 
-    let app = Router::new()
-        .route("/*path", any(any::<Chain<Body>, (), State<Client>>(chain)))
-        .with_state(State(client));
+    graceful.spawn_task_fn(move |guard| async move {
+        let tcp_service = TcpListener::build()
+            .bind(format!("0.0.0.0:{port}"))
+            .await
+            .expect("bind reverse proxy");
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", args.port)).await?;
-    println!("listening on {}", listener.local_addr()?);
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await?;
+        let exec = Executor::graceful(guard.clone());
+        let layers = (
+            NormalizeLayer::default(),
+            DecisionLayer::new(NameFilter::default()),
+            InjectLayer::default(),
+        );
+        let http_reverse_service = new_http_proxy(&reverse_state, layers);
+        let http_service = HttpServer::auto(exec).service(http_reverse_service);
+
+        tcp_service
+            .serve_graceful(
+                guard,
+                (
+                    AddInputExtensionLayer::new(reverse_state),
+                    BodyLimitLayer::symmetric(2 * 1024 * 1024),
+                )
+                    .into_layer(http_service),
+            )
+            .await;
+    });
+
+    graceful
+        .shutdown_with_limit(Duration::from_secs(30))
+        .await
+        .map_err(Error::from)?;
 
     Ok(())
 }

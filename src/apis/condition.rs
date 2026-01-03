@@ -1,5 +1,4 @@
-use schemars::r#gen::SchemaGenerator;
-use schemars::schema::Schema;
+use schemars::{Schema, SchemaGenerator};
 
 pub(crate) fn conditions(_: &mut SchemaGenerator) -> Schema {
     serde_json::from_value(serde_json::json!({

@@ -8,13 +8,13 @@ use std::pin::Pin;
 type SecretData<'a> = Pin<Box<dyn Future<Output = Result<BTreeMap<String, String>>> + Send + 'a>>;
 
 pub trait Storage: Send {
-    fn get(&self) -> SecretData;
+    fn get(&self) -> SecretData<'_>;
 }
 
 pub struct Raw(pub BTreeMap<String, String>);
 
 impl Storage for Raw {
-    fn get(&self) -> SecretData {
+    fn get(&self) -> SecretData<'_> {
         Box::pin(async move { Ok(self.0.clone()) })
     }
 }
@@ -34,7 +34,7 @@ impl Kubernetes {
 }
 
 impl Storage for Kubernetes {
-    fn get(&self) -> SecretData {
+    fn get(&self) -> SecretData<'_> {
         Box::pin(async move {
             let client = kube::Client::try_default().await?;
             let api = Api::<Secret>::namespaced(client, self.namespace.as_str());

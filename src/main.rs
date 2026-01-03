@@ -1,25 +1,77 @@
-use anyhow::Result;
-use auth_bridge::apis::proxy::Proxy;
-use auth_bridge::apis::script::Script;
-use auth_bridge::cmd::controller;
-use auth_bridge::cmd::forward;
-use auth_bridge::cmd::forward::Args as ForwardArgs;
-use auth_bridge::cmd::reverse;
-use auth_bridge::cmd::reverse::Args as ReverseArgs;
-use clap::{Parser, Subcommand};
-use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
-use rustls::crypto::ring;
-use kube::CustomResourceExt;
+//! This example shows how one can begin with creating a MITM proxy.
+//!
+//! Note that this MITM proxy is not production ready, and is only meant
+//! to show you how one might start. You might want to address the following:
+//!
+//! - Load in your tls mitm cert/key pair from file or ACME
+//! - Make sure your clients trust the MITM cert
+//! - Do not enforce the Application protocol and instead convert requests when needed,
+//!   e.g. in this example we _always_ map the protocol between two ends,
+//!   even though it might be better to be able to map bidirectionaly between http versions
+//! - ... and much more
+//!
+//! That said for basic usage it does work and should at least give you an idea on how to get started.
+//!
+//! It combines concepts that can seen in action separately in the following examples:
+//!
+//! - [`http_connect_proxy`](./http_connect_proxy.rs);
+//! - [`tls_boring_termination`](./tls_boring_termination.rs);
+//!
+//! # Run the example
+//!
+//! ```sh
+//! cargo run --example http_mitm_proxy_boring --features=http-full,boring
+//! ```
+//!
+//! ## Expected output
+//!
+//! The server will start and listen on `:62017`. You can use `curl` to interact with the service:
+//!
+//! ```sh
+//! curl -v -x http://127.0.0.1:62017 --proxy-user 'john:secret' http://www.example.com/
+//! curl -k -v -x http://127.0.0.1:62017 --proxy-user 'john:secret' https://www.example.com/
+//! ```
+//!
+//! ## WebSocket support
+//!
+//! Since July of 2025 this example also contains WebSocket MITM support.
+//! You can for example test it using:
+//!
+//! ```sh
+//! rama ws -k \
+//!     --proxy http://127.0.0.1:62017 --proxy-user 'john:secret' \
+//!     wss://echo.ramaproxy.org
+//! ```
+//!
+//! Or use one of alternative sub protocols available in the echo server:
+//!
+//! ```sh
+//! rama ws -k \
+//!     --proxy http://127.0.0.1:62017 --proxy-user 'john:secret' \
+//!     --protocols echo-upper wss://echo.ramaproxy.org
+//! ```
 
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-#[command(propagate_version = true)]
+mod apis;
+mod cmd;
+mod core;
+mod http;
+
+use clap::{Parser, Subcommand};
+use kube::CustomResourceExt;
+use std::fs;
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use serde_saphyr as yaml;
+
+use crate::apis::{proxy::Proxy, script::Script};
+
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
     #[command(long_about = "run controller")]
     Controller,
@@ -29,40 +81,39 @@ enum Commands {
         path: String,
     },
     #[command(long_about = "run forward http")]
-    ForwardProxy(ForwardArgs),
+    ForwardProxy(cmd::forward::Args),
     #[command(long_about = "run reverse http")]
-    ReverseProxy(ReverseArgs),
+    ReverseProxy(cmd::reverse::Args),
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
-
-    ring::default_provider()
-        .install_default()
-        .expect("Failed to install rustls crypto provider");
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(
+            EnvFilter::builder()
+                .with_default_directive(rama::telemetry::tracing::level_filters::LevelFilter::INFO.into())
+                .from_env_lossy(),
+        )
+        .init();
 
     let cli = Cli::parse();
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
-    match &cli.command {
-        Commands::ForwardProxy(args) => forward::run(args).await,
-        Commands::ReverseProxy(args) => reverse::run(args).await,
-        Commands::Controller => controller::run().await,
-        Commands::Crd { path } => {
-            generate_crd(Proxy::crd(), path)?;
-            generate_crd(Script::crd(), path)?;
-
-            Ok(())
-        }
+    match cli.command {
+        Commands::Controller => cmd::controller::run().await?,
+        Commands::Crd { path } => write_crds(&path)?,
+        Commands::ForwardProxy(args) => cmd::forward::run(&args).await?,
+        Commands::ReverseProxy(args) => cmd::reverse::run(&args).await?,
     }
+
+    Ok(())
 }
 
-fn generate_crd(crd: CustomResourceDefinition, path: &String) -> Result<()> {
-    let yaml = serde_yaml::to_string(&crd)?;
-    let file = format!("{}_{}.yaml", crd.spec.group, crd.spec.names.plural);
-    std::fs::write(format!("{}/{}", path, file), yaml)?;
-
+fn write_crds(path: &str) -> anyhow::Result<()> {
+    let mut out = String::new();
+    out.push_str(&yaml::to_string(&Proxy::crd())?);
+    out.push_str("\n---\n");
+    out.push_str(&yaml::to_string(&Script::crd())?);
+    fs::write(path, out)?;
     Ok(())
 }

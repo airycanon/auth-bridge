@@ -1,5 +1,5 @@
 use http::{Response, StatusCode};
-use hyper::body::Body;
+use rama::error::BoxError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -11,7 +11,7 @@ pub enum ProxyError {
     HandleProxy(#[from] anyhow::Error),
 
     #[error(transparent)]
-    UpstreamError(#[from] hyper_util::client::legacy::Error),
+    UpstreamError(#[from] BoxError),
 
     #[error(transparent)]
     BuildInput(#[from] serde_json::Error),
@@ -21,7 +21,7 @@ pub enum ProxyError {
 
 impl<B> From<ProxyError> for Response<B>
 where
-    B: Body + From<String>,
+    B: From<String>,
 {
     fn from(error: ProxyError) -> Self {
         let status = match error {

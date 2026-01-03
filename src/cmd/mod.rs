@@ -24,11 +24,11 @@ trait ResourceHandler<T>
 where
     T: Debug,
 {
-    fn handle_create(&self, resource: T) -> BoxFuture<Result<(), kube::Error>> {
+    fn handle_create(&self, resource: T) -> BoxFuture<'_, Result<(), kube::Error>> {
         debug!("handle resource change: {:?}", resource);
         Box::pin(async move { Ok(()) })
     }
-    fn handle_delete(&self, resource: T) -> BoxFuture<Result<(), kube::Error>> {
+    fn handle_delete(&self, resource: T) -> BoxFuture<'_, Result<(), kube::Error>> {
         debug!("handle resource delete: {:?}", resource);
         Box::pin(async move { Ok(()) })
     }
@@ -115,7 +115,7 @@ impl ProxyHandler {
 }
 
 impl ResourceHandler<Proxy> for ProxyHandler {
-    fn handle_create(&self, proxy: Proxy) -> BoxFuture<Result<(), kube::Error>> {
+    fn handle_create(&self, proxy: Proxy) -> BoxFuture<'_, Result<(), kube::Error>> {
         debug!("handle proxy: {:?}", proxy);
 
         Box::pin(async move {
@@ -130,7 +130,7 @@ impl ResourceHandler<Proxy> for ProxyHandler {
         })
     }
 
-    fn handle_delete(&self, proxy: Proxy) -> BoxFuture<Result<(), kube::Error>> {
+    fn handle_delete(&self, proxy: Proxy) -> BoxFuture<'_, Result<(), kube::Error>> {
         Box::pin(async move {
             let api = Api::<Service>::namespaced(
                 self.client.clone(),

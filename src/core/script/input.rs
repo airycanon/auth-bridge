@@ -1,9 +1,8 @@
 use crate::core::pod::store::Store;
-use crate::http::body::ProxyBody;
 use anyhow::Result;
 use bytes::Bytes;
 use http::header::CONTENT_TYPE;
-use http::request::Parts;
+use rama::http::request::Parts;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::net::IpAddr;
@@ -37,26 +36,46 @@ where
 }
 
 #[derive(Debug, Default)]
-pub struct InputBuilder {
-    parts: Option<Parts>,
-    body: Option<Bytes>,
+pub struct InputBuilder<'a> {
+    query: Option<BTreeMap<String, String>>,
+    headers: Option<BTreeMap<String, String>>,
+    uri: Option<String>,
+    body: Option<&'a Bytes>,
     ip: Option<IpAddr>,
     content_type: String,
 }
 
-impl InputBuilder {
-    pub fn with_parts(mut self, parts: Parts) -> Self {
+impl<'a> InputBuilder<'a> {
+    pub fn with_parts_ref(mut self, parts: &Parts) -> Self {
         let content_type = parts
             .headers
             .get(CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .unwrap_or_default();
         self.content_type = content_type.to_string();
-        self.parts = Some(parts);
+
+        let query: BTreeMap<String, String> = parts
+            .uri
+            .query()
+            .map(|v| form_urlencoded::parse(v.as_bytes()).into_owned().collect())
+            .unwrap_or_else(BTreeMap::new);
+        self.query = Some(query);
+
+        let headers: BTreeMap<String, String> = parts
+            .headers
+            .iter()
+            .filter_map(|(k, v)| {
+                let value = v.to_str().ok()?;
+                Some((k.to_string(), value.to_string()))
+            })
+            .collect();
+        self.headers = Some(headers);
+
+        self.uri = Some(parts.uri.to_string());
         self
     }
 
-    pub fn with_body(mut self, bytes: Bytes) -> Self {
+    pub fn with_body_ref(mut self, bytes: &'a Bytes) -> Self {
         self.body = Some(bytes);
         self
     }
@@ -69,32 +88,34 @@ impl InputBuilder {
     pub fn build(self) -> Result<Input> {
         let mut input = BTreeMap::new();
 
-        if let Some(parts) = self.parts.clone() {
-            let query: BTreeMap<String, String> = parts
-                .uri
-                .query()
-                .map(|v| form_urlencoded::parse(v.as_bytes()).into_owned().collect())
-                .unwrap_or_else(BTreeMap::new);
-
+        if let Some(query) = self.query {
             input.insert(String::from("query"), serde_json::to_value(query)?);
+        }
 
-            let headers: BTreeMap<String, String> = parts
-                .headers
-                .into_iter()
-                .filter_map(|(k, v)| {
-                    let key = k?;
-                    let value = v.to_str().ok()?;
-                    Some((key.to_string(), value.to_string()))
-                })
-                .collect();
+        if let Some(headers) = self.headers {
             input.insert(String::from("headers"), serde_json::to_value(headers)?);
+        }
 
-            input.insert(String::from("uri"), Value::from(parts.uri.to_string()));
+        if let Some(uri) = self.uri {
+            input.insert(String::from("uri"), Value::from(uri));
         }
 
         if let Some(bytes) = self.body {
-            let body = ProxyBody::from_bytes(self.content_type, bytes);
-            input.insert("body".to_string(), body.try_into()?);
+            let map = match &self.content_type {
+                t if t.starts_with("application/x-www-form-urlencoded") => form_urlencoded::parse(bytes)
+                    .into_owned()
+                    .map(|(k, v)| (k.clone(), Value::String(v)))
+                    .collect::<BTreeMap<String, Value>>(),
+                t if t.starts_with("application/json") => {
+                    let value: Value = serde_json::from_slice(bytes)?;
+                    value
+                        .as_object()
+                        .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+                        .unwrap_or_default()
+                }
+                _ => BTreeMap::new(),
+            };
+            input.insert("body".to_string(), serde_json::to_value(map)?);
         }
 
         if let Some(ip) = self.ip {

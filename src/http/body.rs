@@ -1,18 +1,14 @@
 use bytes::Bytes;
-use http_body_util::Full;
+use rama::http::Body as RamaBody;
 use serde_json::{Error, Value};
 use std::collections::BTreeMap;
-use std::fmt::Debug;
 use std::result::Result;
-use hudsucker::Body as ForwardBody;
-use axum::body::Body as ReverseBody;
-use http_body_util::BodyExt;
-use hyper::body::Body;
 
 pub const CONTENT_TYPE_FORM: &str = "application/x-www-form-urlencoded";
 
 pub const CONTENT_TYPE_JSON: &str = "application/json";
 
+#[derive(Debug)]
 pub struct ProxyBody {
     content_type: Option<String>,
     bytes: Bytes,
@@ -86,21 +82,12 @@ impl From<Bytes> for ProxyBody {
     }
 }
 
-impl TryFrom<ProxyBody> for ForwardBody {
+impl TryFrom<ProxyBody> for RamaBody {
     type Error = Error;
 
     fn try_from(body: ProxyBody) -> Result<Self, Self::Error> {
         let bytes = body.bytes()?;
-        Ok(ForwardBody::from(Full::from(bytes)))
-    }
-}
-
-impl TryFrom<ProxyBody> for ReverseBody {
-    type Error = Error;
-
-    fn try_from(body: ProxyBody) -> Result<Self, Self::Error> {
-        let bytes = body.bytes()?;
-        Ok(ReverseBody::from(bytes))
+        Ok(RamaBody::from(bytes))
     }
 }
 
@@ -112,9 +99,4 @@ impl TryFrom<ProxyBody> for Value {
 
         Ok(serde_json::to_value(data).unwrap_or_default())
     }
-}
-
-
-pub trait ProxyBodyExt: Body + Send + Sync + Debug + BodyExt {
-    fn into_bytes(self) -> Result<Bytes, Self::Error>;
 }
