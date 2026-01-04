@@ -51,10 +51,10 @@
 //!     --protocols echo-upper wss://echo.ramaproxy.org
 //! ```
 
-mod apis;
+mod api;
 mod cmd;
-mod core;
-mod http;
+mod proxy;
+mod runtime;
 
 use clap::{Parser, Subcommand};
 use kube::CustomResourceExt;
@@ -62,7 +62,7 @@ use std::fs;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use serde_saphyr as yaml;
 
-use crate::apis::{proxy::Proxy, script::Script};
+use crate::api::{proxy::Proxy, script::Script};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]

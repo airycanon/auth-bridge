@@ -1,13 +1,20 @@
-FROM rust:alpine AS builder
+FROM rust:bookworm AS builder
 
 WORKDIR /workspace
 
 COPY ./ /workspace
 
-RUN apk update && apk add git build-base && cargo build --release
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      git \
+      build-essential \
+      cmake \
+      libclang-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    cargo build --release
 
 
-FROM alpine:3
+FROM debian:bookworm-slim
 
 COPY --from=builder /workspace/target/release/auth-bridge /bin/auth-bridge
 

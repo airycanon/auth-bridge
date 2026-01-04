@@ -1,4 +1,4 @@
-use crate::core::layer::decision::ProxyDecision;
+use crate::proxy::layers::decision::ProxyDecision;
 use rama::{
     Layer, Service,
     http::{Body, Request, Response, StatusCode},

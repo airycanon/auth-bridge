@@ -311,6 +311,17 @@ For detailed examples, please check the following in the project repository:
 
 Each example directory contains complete configuration files and usage instructions.
 
+## Local Development
+
+### Generate a local MITM CA certificate
+
+Use this when you want to inspect TLS traffic during local debugging:
+
+```shell
+openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes \
+  -keyout ca.key -out ca.crt -subj "/CN=auth-bridge"
+```
+
 ## Contributing
 
 We welcome contributions of all forms! If you find a bug or have a feature request, please create an issue. If you'd

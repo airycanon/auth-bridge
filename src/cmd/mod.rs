@@ -1,6 +1,6 @@
-use crate::apis::proxy::{Address, Proxy, ProxyService};
-use crate::apis::script::Script;
-use crate::core::env::{FORWARD_PROXY_ENV, REVERSE_PROXY_ENV};
+use crate::api::proxy::{Address, Proxy, ProxyService};
+use crate::api::script::Script;
+use crate::runtime::support::env::{FORWARD_PROXY_ENV, REVERSE_PROXY_ENV};
 use futures::future::BoxFuture;
 use k8s_openapi::api::core::v1::{Service, ServiceSpec};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;

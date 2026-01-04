@@ -1,5 +1,5 @@
-use crate::http::body::ProxyBody;
-use crate::http::injector::{InjectedResult, Injector};
+use crate::proxy::body::ProxyBody;
+use crate::proxy::injector::{InjectedResult, Injector};
 use bytes::Bytes;
 use http::request::Parts;
 use std::fmt;

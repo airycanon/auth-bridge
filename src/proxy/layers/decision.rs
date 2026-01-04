@@ -1,6 +1,6 @@
-use crate::core::filter::ProxyFilter;
-use crate::core::resolver::ProxyResolver;
-use crate::core::script::input::InputBuilder;
+use crate::runtime::support::filter::ProxyFilter;
+use crate::runtime::support::resolver::ProxyResolver;
+use crate::runtime::script::input::InputBuilder;
 use bytes::{Buf, Bytes};
 use http_body_util::BodyExt;
 use rama::{
@@ -69,7 +69,7 @@ where
     type Output = Response;
     type Error = Infallible;
 
-    async fn serve(&self, req: Request) -> std::result::Result<Self::Output, Self::Error> {
+    async fn serve(&self, req: Request) -> Result<Self::Output, Self::Error> {
         let (parts, body) = req.into_parts();
         let addr = parts
             .extensions

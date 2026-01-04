@@ -1,8 +1,8 @@
-use crate::core::filter::NameFilter;
-use crate::core::layer::decision::DecisionLayer;
-use crate::core::layer::inject::InjectLayer;
-use crate::core::layer::normalize::NormalizeLayer;
-use crate::http::proxy::{ProxyState, new_http_proxy};
+use crate::runtime::support::filter::NameFilter;
+use crate::proxy::layers::decision::DecisionLayer;
+use crate::proxy::layers::inject::InjectLayer;
+use crate::proxy::layers::normalize::NormalizeLayer;
+use crate::proxy::service::{ProxyState, new_http_proxy};
 use anyhow::Error;
 use clap::Parser;
 use rama::{

@@ -1,4 +1,4 @@
-use crate::core::script::input::Input;
+use crate::runtime::script::input::Input;
 use anyhow::{anyhow, Result};
 use log::debug;
 use regorus::{Engine as RegoEngine, Value as RegoValue};

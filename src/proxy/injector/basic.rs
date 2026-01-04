@@ -1,4 +1,4 @@
-use crate::http::injector::{InjectedResult, Injector};
+use crate::proxy::injector::{InjectedResult, Injector};
 use bytes::Bytes;
 use headers::{Authorization, HeaderMapExt};
 use http::request::Parts;

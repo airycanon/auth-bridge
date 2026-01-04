@@ -12,7 +12,7 @@ use std::sync::RwLock;
 
 
 use once_cell::sync::Lazy;
-use crate::core::pod::meta::Meta;
+use crate::runtime::pod::meta::Meta;
 
 static STORE: Lazy<Store> = Lazy::new(Store::default);
 

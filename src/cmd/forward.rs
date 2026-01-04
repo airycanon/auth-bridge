@@ -1,9 +1,9 @@
-use crate::core::filter::AddressFilter;
-use crate::core::layer::decision::DecisionLayer;
-use crate::core::layer::inject::InjectLayer;
-use crate::core::layer::normalize::NormalizeLayer;
-use crate::core::pod::store::Store;
-use crate::http::proxy::{
+use crate::runtime::support::filter::AddressFilter;
+use crate::proxy::layers::decision::DecisionLayer;
+use crate::proxy::layers::inject::InjectLayer;
+use crate::proxy::layers::normalize::NormalizeLayer;
+use crate::runtime::pod::store::Store;
+use crate::proxy::service::{
     ProxyState, http_connect_accept, http_connect_proxy, new_http_proxy, new_tls_acceptor,
 };
 use anyhow::{Error, Result};
@@ -12,12 +12,12 @@ use log::error;
 use rama::{
     Layer,
     http::{
-        layer::{proxy_auth::ProxyAuthLayer, trace::TraceLayer, upgrade::UpgradeLayer},
+        layer::{trace::TraceLayer, upgrade::UpgradeLayer},
         matcher::MethodMatcher,
         server::HttpServer,
     },
     layer::{AddInputExtensionLayer, ConsumeErrLayer},
-    net::{stream::layer::http::BodyLimitLayer, user::credentials::basic},
+    net::{stream::layer::http::BodyLimitLayer},
     rt::Executor,
     service::service_fn,
     tcp::server::TcpListener,
@@ -76,7 +76,6 @@ pub async fn run(args: &Args) -> Result<()> {
         let http_service = (
             TraceLayer::new_for_http(),
             ConsumeErrLayer::default(),
-            ProxyAuthLayer::new(basic!("john", "secret")),
             UpgradeLayer::new(
                 MethodMatcher::CONNECT,
                 service_fn(http_connect_accept),

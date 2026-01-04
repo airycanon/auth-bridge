@@ -1,4 +1,4 @@
-use crate::http::body::ProxyBody;
+use crate::proxy::body::ProxyBody;
 use anyhow::Result;
 use bytes::Bytes;
 use http::request::Parts;

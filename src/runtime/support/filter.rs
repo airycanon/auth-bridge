@@ -1,4 +1,4 @@
-use crate::apis::proxy::Proxy;
+use crate::api::proxy::Proxy;
 use http::Uri;
 use kube::ResourceExt;
 

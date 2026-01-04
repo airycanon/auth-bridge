@@ -1,9 +1,9 @@
-use crate::apis::auth::AuthMethod::Dynamic;
-use crate::apis::proxy::Proxy;
-use crate::apis::script::Script;
-use crate::core::filter::ProxyFilter;
-use crate::core::script::input::Input;
-use crate::http::body::ProxyBody;
+use crate::api::auth::AuthMethod::Dynamic;
+use crate::api::proxy::Proxy;
+use crate::api::script::Script;
+use crate::runtime::support::filter::ProxyFilter;
+use crate::runtime::script::input::Input;
+use crate::proxy::body::ProxyBody;
 use anyhow::Result;
 use bytes::Bytes;
 use http::request::Parts;

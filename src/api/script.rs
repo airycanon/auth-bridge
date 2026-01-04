@@ -1,9 +1,9 @@
-use crate::apis::condition::conditions;
+use crate::api::condition::conditions;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::core::script::engine::{Executor, RegoExecutor};
+use crate::runtime::script::engine::{Executor, RegoExecutor};
 
 // A struct with our chosen Kind will be created for us, using the following kube attrs
 #[derive(CustomResource, Serialize, Deserialize, Debug, Clone, JsonSchema)]

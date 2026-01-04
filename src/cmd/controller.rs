@@ -1,5 +1,5 @@
-use crate::apis::proxy::Proxy;
-use crate::apis::script::Script;
+use crate::api::proxy::Proxy;
+use crate::api::script::Script;
 use crate::cmd::{ProxyHandler, ResourceHandler, ScriptHandler};
 use anyhow::{anyhow, Result};
 use futures::TryStreamExt;
