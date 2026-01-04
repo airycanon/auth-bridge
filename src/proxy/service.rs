@@ -1,4 +1,5 @@
 use crate::proxy::layers::log::LogLayer;
+use crate::runtime::support::dns::SystemDnsResolver;
 use rama::{
     Layer, Service,
     error::{ErrorContext, OpaqueError},
@@ -161,6 +162,7 @@ pub async fn http_proxy(req: Request) -> Result<Response, Infallible> {
 
     let client = EasyHttpWebClient::connector_builder()
         .with_default_transport_connector()
+        .with_dns_resolver(SystemDnsResolver::new())
         .with_tls_proxy_support_using_boringssl()
         .with_proxy_support()
         .with_tls_support_using_boringssl_and_default_http_version(
