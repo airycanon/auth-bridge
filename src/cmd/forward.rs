@@ -1,11 +1,10 @@
-use crate::runtime::support::filter::AddressFilter;
 use crate::proxy::layers::decision::DecisionLayer;
 use crate::proxy::layers::inject::InjectLayer;
-use crate::proxy::layers::normalize::NormalizeLayer;
-use crate::runtime::pod::store::Store;
 use crate::proxy::service::{
     ProxyState, http_connect_accept, http_connect_proxy, new_http_proxy, new_tls_acceptor,
 };
+use crate::runtime::pod::store::Store;
+use crate::runtime::support::filter::AddressFilter;
 use anyhow::{Error, Result};
 use clap::Parser;
 use log::error;
@@ -17,7 +16,7 @@ use rama::{
         server::HttpServer,
     },
     layer::{AddInputExtensionLayer, ConsumeErrLayer},
-    net::{stream::layer::http::BodyLimitLayer},
+    net::stream::layer::http::BodyLimitLayer,
     rt::Executor,
     service::service_fn,
     tcp::server::TcpListener,
@@ -65,11 +64,7 @@ pub async fn run(args: &Args) -> Result<()> {
             .expect("bind tcp proxy");
 
         let exec = Executor::graceful(guard.clone());
-        let layers = (
-            NormalizeLayer::default(),
-            DecisionLayer::new(AddressFilter::default()),
-            InjectLayer::default(),
-        );
+        let layers = (DecisionLayer::new(AddressFilter), InjectLayer);
 
         let http_mitm_service = new_http_proxy(&state, layers.clone());
 

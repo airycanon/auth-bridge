@@ -1,12 +1,12 @@
+use crate::runtime::script::input::InputBuilder;
 use crate::runtime::support::filter::ProxyFilter;
 use crate::runtime::support::resolver::ProxyResolver;
-use crate::runtime::script::input::InputBuilder;
 use bytes::{Buf, Bytes};
 use http_body_util::BodyExt;
 use rama::{
     Layer, Service,
-    http::{Body, Request, Response, StatusCode},
     http::service::web::response::IntoResponse,
+    http::{Body, Request, Response, StatusCode},
     net::stream::SocketInfo,
     telemetry::tracing,
 };

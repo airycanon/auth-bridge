@@ -1,7 +1,7 @@
 use crate::proxy::injector::{InjectedResult, Injector};
 use bytes::Bytes;
-use http::{HeaderName, HeaderValue};
 use http::request::Parts;
+use http::{HeaderName, HeaderValue};
 use std::fmt;
 use std::str::FromStr;
 

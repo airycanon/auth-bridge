@@ -1,12 +1,12 @@
 use crate::api::script::Script;
-use crate::runtime::script::input::Input;
 use crate::proxy::injector::Injector;
 use crate::proxy::injector::basic::BasicAuthInjector;
 use crate::proxy::injector::bearer::BearerTokenInjector;
 use crate::proxy::injector::body::BodyInjector;
 use crate::proxy::injector::header::HeaderInjector;
 use crate::proxy::injector::query::QueryInjector;
-use anyhow::{anyhow, Result};
+use crate::runtime::script::input::Input;
+use anyhow::{Result, anyhow};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,7 +18,10 @@ use std::fmt::Debug;
 pub enum AuthMethod {
     BasicAuth {},
     BearerToken {},
-    Generic { position: AuthPosition, key: String },
+    Generic {
+        position: AuthPosition,
+        key: String,
+    },
     Dynamic {
         position: AuthPosition,
         key: String,

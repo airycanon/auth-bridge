@@ -2625,9 +2625,8 @@ dependencies = [
 
 [[package]]
 name = "rama"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66a8e02be6b50e4c35cbba44f15828fa716fa3048bb3b751b8dbda338983346f"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "base64",
@@ -2692,9 +2691,8 @@ dependencies = [
 
 [[package]]
 name = "rama-core"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b93751ab27c9d151e84c1100057eab3f2a6a1378bc31b62abd416ecb1847658"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "asynk-strim",
@@ -2715,9 +2713,8 @@ dependencies = [
 
 [[package]]
 name = "rama-crypto"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4ea5a793b2fe86a32e11a672d68378a18073701cce9b3f2b477b80b304711c5"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "aws-lc-rs",
  "base64",
@@ -2732,9 +2729,8 @@ dependencies = [
 
 [[package]]
 name = "rama-dns"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e340fef2799277e204260b17af01bc23604712092eacd6defe40167f304baed8"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "hickory-resolver",
@@ -2747,15 +2743,13 @@ dependencies = [
 
 [[package]]
 name = "rama-error"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c452aba1beb7e29b873ff32f304536164cffcc596e786921aea64e858ff8f40"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 
 [[package]]
 name = "rama-http"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "453d60af031e23af2d48995e41b17023f6150044738680508b63671f8d7417dd"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "async-compression",
@@ -2773,7 +2767,6 @@ dependencies = [
  "iri-string",
  "matchit",
  "parking_lot",
- "percent-encoding",
  "pin-project-lite",
  "radix_trie",
  "rama-core",
@@ -2793,9 +2786,8 @@ dependencies = [
 
 [[package]]
 name = "rama-http-backend"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3ff6a3c8ae690be8167e43777ba0bf6b0c8c2f6de165c538666affe2a32fd81"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "h2",
  "pin-project-lite",
@@ -2813,9 +2805,8 @@ dependencies = [
 
 [[package]]
 name = "rama-http-core"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3822be6703e010afec0bcfeb5dbb6e5a3b23ca5689d9b1215b66ce6446653b77"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "atomic-waker",
@@ -2838,9 +2829,8 @@ dependencies = [
 
 [[package]]
 name = "rama-http-headers"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d74fe0cd9bd4440827dc6dc0f504cf66065396532e798891dee2c1b740b2285"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "base64",
@@ -2860,9 +2850,8 @@ dependencies = [
 
 [[package]]
 name = "rama-http-types"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6dae655a72da5f2b97cfacb67960d8b28c5025e62707b4c8c5f0c5c9843a444"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "bytes",
@@ -2890,9 +2879,8 @@ dependencies = [
 
 [[package]]
 name = "rama-macros"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea18a110bcf21e35c5f194168e6914ccea45ffdd0fea51bc4b169fbeafef6428"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -2902,9 +2890,8 @@ dependencies = [
 
 [[package]]
 name = "rama-net"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b28ee9e1e5d39264414b71f5c33e7fbb66b382c3fac456fe0daad39cf5509933"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "const_format",
@@ -2915,6 +2902,7 @@ dependencies = [
  "md5",
  "nom 8.0.0",
  "parking_lot",
+ "percent-encoding",
  "pin-project-lite",
  "psl",
  "radix_trie",
@@ -2930,9 +2918,8 @@ dependencies = [
 
 [[package]]
 name = "rama-socks5"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5468b263516daaf258de32542c1974b7cbe962363ad913dcb669f5d46db0ef3e"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "byteorder",
  "rama-core",
@@ -2947,9 +2934,8 @@ dependencies = [
 
 [[package]]
 name = "rama-tcp"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe60cd604f91196b3659a1b28945add2e8b10bd0b4e6373c93d024fb3197704b"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "pin-project-lite",
  "rama-core",
@@ -2963,9 +2949,8 @@ dependencies = [
 
 [[package]]
 name = "rama-tls-boring"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "def3d5d06d3ca3a2d2e4376cf93de0555cd9c7960f085bf77be9562f5c9ace8f"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "brotli",
@@ -2989,9 +2974,8 @@ dependencies = [
 
 [[package]]
 name = "rama-tls-rustls"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "536d47f6b269fb20dffd45e4c04aa8b340698b3509326e3c36e444b4f33ce0d6"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "pin-project-lite",
  "rama-core",
@@ -3010,9 +2994,8 @@ dependencies = [
 
 [[package]]
 name = "rama-ua"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7abde8e7b428c80c5948885c1ee0492852a21d91844c8414a0de4a8a1d62262"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "ahash",
  "itertools 0.14.0",
@@ -3028,9 +3011,8 @@ dependencies = [
 
 [[package]]
 name = "rama-udp"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36ed05e0ecac73e084e92a3a8b1fbf16fdae8958c506f0f0eada180a2d99eef4"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "rama-core",
  "rama-net",
@@ -3040,9 +3022,8 @@ dependencies = [
 
 [[package]]
 name = "rama-unix"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91acb16d571428ba4cece072dfab90d2667cdfa910a7b3cb4530c3f31542d708"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "pin-project-lite",
  "rama-core",
@@ -3052,9 +3033,8 @@ dependencies = [
 
 [[package]]
 name = "rama-utils"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf28b18ba4a57f8334d7992d3f8020194ea359b246ae6f8f98b8df524c7a14ef"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "const_format",
  "parking_lot",
@@ -3070,9 +3050,8 @@ dependencies = [
 
 [[package]]
 name = "rama-ws"
-version = "0.3.0-alpha.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "300b2b6ba51381d1a6918d1142879a8314588f7cf24669f6ba8439d9d19ab486"
+version = "0.3.0-rc1"
+source = "git+https://github.com/plabayo/rama.git?branch=main#d019bcdad6116289f94bd713d5ebb6cd7c450c05"
 dependencies = [
  "flate2",
  "rama-core",

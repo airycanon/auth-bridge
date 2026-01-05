@@ -6,8 +6,8 @@ use crate::runtime::support::secret::{Kubernetes, Raw, Storage};
 use k8s_openapi::api::core::v1::SecretReference;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use kube::CustomResource;
-use schemars::{Schema, SchemaGenerator};
 use schemars::JsonSchema;
+use schemars::{Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

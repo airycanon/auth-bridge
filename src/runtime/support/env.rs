@@ -13,5 +13,3 @@ impl Env {
         env::var(self.0).unwrap_or_else(|_| String::new())
     }
 }
-
-

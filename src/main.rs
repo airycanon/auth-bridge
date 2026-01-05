@@ -58,9 +58,9 @@ mod runtime;
 
 use clap::{Parser, Subcommand};
 use kube::CustomResourceExt;
+use serde_saphyr as yaml;
 use std::fs;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use serde_saphyr as yaml;
 
 use crate::api::{proxy::Proxy, script::Script};
 
@@ -92,7 +92,9 @@ async fn main() -> anyhow::Result<()> {
         .with(fmt::layer())
         .with(
             EnvFilter::builder()
-                .with_default_directive(rama::telemetry::tracing::level_filters::LevelFilter::INFO.into())
+                .with_default_directive(
+                    rama::telemetry::tracing::level_filters::LevelFilter::INFO.into(),
+                )
                 .from_env_lossy(),
         )
         .init();

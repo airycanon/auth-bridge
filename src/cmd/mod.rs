@@ -4,9 +4,9 @@ use crate::runtime::support::env::{FORWARD_PROXY_ENV, REVERSE_PROXY_ENV};
 use futures::future::BoxFuture;
 use k8s_openapi::api::core::v1::{Service, ServiceSpec};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use kube::Error::Api as ApiError;
 use kube::api::{DeleteParams, ListParams, Patch, PatchParams, PostParams};
 use kube::core::Selector;
-use kube::Error::Api as ApiError;
 use kube::{Api, Client, ResourceExt};
 use log::{debug, info, warn};
 use serde_json::json;
@@ -86,11 +86,11 @@ impl ProxyHandler {
 
     async fn update_address(
         &self,
-        namespace: &String,
-        name: &String,
-        service: &String,
+        namespace: &str,
+        name: &str,
+        service: &str,
     ) -> Result<(), kube::Error> {
-        let api = Api::<Proxy>::namespaced(self.client.clone(), namespace.as_str());
+        let api = Api::<Proxy>::namespaced(self.client.clone(), namespace);
 
         let forward_proxy = ProxyService::from_env(FORWARD_PROXY_ENV);
         let reverse_proxy = ProxyService::new(namespace.to_string(), service.to_string());
@@ -103,12 +103,8 @@ impl ProxyHandler {
                 },
             },
         });
-        api.patch_status(
-            name.as_str(),
-            &PatchParams::default(),
-            &Patch::Merge(&patch),
-        )
-        .await?;
+        api.patch_status(name, &PatchParams::default(), &Patch::Merge(&patch))
+            .await?;
 
         Ok(())
     }
@@ -122,7 +118,8 @@ impl ResourceHandler<Proxy> for ProxyHandler {
             let namespace = proxy.namespace().unwrap();
             let name = proxy.name_any();
             if let Some(service) = self.create_service(&namespace, &name).await? {
-                self.update_address(&namespace, &name, &service.name_any())
+                let service_name = service.name_any();
+                self.update_address(&namespace, &name, &service_name)
                     .await?;
             }
 
@@ -140,7 +137,7 @@ impl ResourceHandler<Proxy> for ProxyHandler {
             let mut label = BTreeMap::new();
             label.insert(PROXY_LABEL.to_string(), proxy.name_any());
 
-            let selector = Selector::from_iter(label.clone().into_iter());
+            let selector = Selector::from_iter(label);
             let delete_params = DeleteParams::default();
             let list_params = ListParams::default().labels_from(&selector);
 

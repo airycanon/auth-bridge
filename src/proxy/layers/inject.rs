@@ -1,8 +1,8 @@
 use crate::proxy::layers::decision::ProxyDecision;
 use rama::{
     Layer, Service,
-    http::{Body, Request, Response, StatusCode},
     http::service::web::response::IntoResponse,
+    http::{Body, Request, Response, StatusCode},
     telemetry::tracing,
 };
 use std::convert::Infallible;

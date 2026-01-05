@@ -1,8 +1,7 @@
-use crate::runtime::support::filter::NameFilter;
 use crate::proxy::layers::decision::DecisionLayer;
 use crate::proxy::layers::inject::InjectLayer;
-use crate::proxy::layers::normalize::NormalizeLayer;
 use crate::proxy::service::{ProxyState, new_http_proxy};
+use crate::runtime::support::filter::NameFilter;
 use anyhow::Error;
 use clap::Parser;
 use rama::{
@@ -34,11 +33,7 @@ pub async fn run(args: &Args) -> anyhow::Result<()> {
             .expect("bind reverse proxy");
 
         let exec = Executor::graceful(guard.clone());
-        let layers = (
-            NormalizeLayer::default(),
-            DecisionLayer::new(NameFilter::default()),
-            InjectLayer::default(),
-        );
+        let layers = (DecisionLayer::new(NameFilter), InjectLayer);
         let http_reverse_service = new_http_proxy(&reverse_state, layers);
         let http_service = HttpServer::auto(exec).service(http_reverse_service);
 

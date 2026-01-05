@@ -1,13 +1,13 @@
 use crate::api::auth::AuthMethod::Dynamic;
 use crate::api::proxy::Proxy;
 use crate::api::script::Script;
-use crate::runtime::support::filter::ProxyFilter;
-use crate::runtime::script::input::Input;
 use crate::proxy::body::ProxyBody;
+use crate::runtime::script::input::Input;
+use crate::runtime::support::filter::ProxyFilter;
 use anyhow::Result;
 use bytes::Bytes;
-use http::request::Parts;
 use http::Uri;
+use http::request::Parts;
 use kube::api::ListParams;
 use kube::{Api, Client, ResourceExt};
 use log::{debug, error, info};
@@ -64,7 +64,7 @@ impl ProxyResolver {
         let api = Api::<Proxy>::all(client.clone());
         let proxies = api.list(&ListParams::default()).await?;
 
-        let target = proxies.into_iter().find(|proxy| filter.filter(proxy, &uri));
+        let target = proxies.into_iter().find(|proxy| filter.filter(proxy, uri));
 
         Ok(target)
     }

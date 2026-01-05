@@ -1,5 +1,5 @@
-use http::uri::InvalidUri;
 use http::Uri;
+use http::uri::InvalidUri;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

@@ -7,7 +7,6 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 
-
 #[derive(Clone, Debug)]
 pub struct Input(pub BTreeMap<String, Value>);
 
@@ -58,7 +57,7 @@ impl<'a> InputBuilder<'a> {
             .uri
             .query()
             .map(|v| form_urlencoded::parse(v.as_bytes()).into_owned().collect())
-            .unwrap_or_else(BTreeMap::new);
+            .unwrap_or_default();
         self.query = Some(query);
 
         let headers: BTreeMap<String, String> = parts
@@ -102,10 +101,12 @@ impl<'a> InputBuilder<'a> {
 
         if let Some(bytes) = self.body {
             let map = match &self.content_type {
-                t if t.starts_with("application/x-www-form-urlencoded") => form_urlencoded::parse(bytes)
-                    .into_owned()
-                    .map(|(k, v)| (k.clone(), Value::String(v)))
-                    .collect::<BTreeMap<String, Value>>(),
+                t if t.starts_with("application/x-www-form-urlencoded") => {
+                    form_urlencoded::parse(bytes)
+                        .into_owned()
+                        .map(|(k, v)| (k.clone(), Value::String(v)))
+                        .collect::<BTreeMap<String, Value>>()
+                }
                 t if t.starts_with("application/json") => {
                     let value: Value = serde_json::from_slice(bytes)?;
                     value
@@ -118,10 +119,10 @@ impl<'a> InputBuilder<'a> {
             input.insert("body".to_string(), serde_json::to_value(map)?);
         }
 
-        if let Some(ip) = self.ip {
-            if let Some(meta) = Store::global().find(&ip.to_string()) {
-                input.insert(String::from("meta"), serde_json::to_value(meta.as_ref())?);
-            }
+        if let Some(ip) = self.ip
+            && let Some(meta) = Store::global().find(&ip.to_string())
+        {
+            input.insert(String::from("meta"), serde_json::to_value(meta.as_ref())?);
         }
 
         Ok(Input(input))

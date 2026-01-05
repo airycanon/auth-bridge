@@ -1,7 +1,7 @@
 use crate::proxy::injector::{InjectedResult, Injector};
 use bytes::Bytes;
-use http::request::Parts;
 use http::Uri;
+use http::request::Parts;
 use std::fmt;
 
 pub struct QueryInjector {

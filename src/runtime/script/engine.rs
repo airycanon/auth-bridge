@@ -1,5 +1,5 @@
 use crate::runtime::script::input::Input;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log::debug;
 use regorus::{Engine as RegoEngine, Value as RegoValue};
 use schemars::JsonSchema;
@@ -45,4 +45,3 @@ impl Executor for RegoExecutor {
         Ok(json_value)
     }
 }
-

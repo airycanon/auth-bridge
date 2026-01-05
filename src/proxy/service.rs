@@ -1,5 +1,4 @@
 use crate::proxy::layers::log::LogLayer;
-use crate::runtime::support::dns::SystemDnsResolver;
 use rama::{
     Layer, Service,
     error::{ErrorContext, OpaqueError},
@@ -27,8 +26,8 @@ use rama::{
             ApplicationProtocol, DataEncoding, SecureTransport,
             client::ServerVerifyMode,
             server::{
-                CacheKind, ServerAuth, ServerAuthData, ServerCertIssuerData,
-                ServerCertIssuerKind, ServerConfig,
+                CacheKind, ServerAuth, ServerAuthData, ServerCertIssuerData, ServerCertIssuerKind,
+                ServerConfig,
             },
         },
     },
@@ -79,7 +78,7 @@ where
         .into_layer(service_fn(http_proxy))
         .boxed();
     let base = layers.into_layer(base).boxed();
-    LogLayer::default().into_layer(base)
+    LogLayer.into_layer(base)
 }
 
 pub async fn http_connect_accept(mut req: Request) -> Result<(Response, Request), Response> {
@@ -162,7 +161,6 @@ pub async fn http_proxy(req: Request) -> Result<Response, Infallible> {
 
     let client = EasyHttpWebClient::connector_builder()
         .with_default_transport_connector()
-        .with_dns_resolver(SystemDnsResolver::new())
         .with_tls_proxy_support_using_boringssl()
         .with_proxy_support()
         .with_tls_support_using_boringssl_and_default_http_version(

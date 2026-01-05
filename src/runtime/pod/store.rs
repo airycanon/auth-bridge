@@ -9,10 +9,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-
-
-use once_cell::sync::Lazy;
 use crate::runtime::pod::meta::Meta;
+use once_cell::sync::Lazy;
 
 static STORE: Lazy<Store> = Lazy::new(Store::default);
 
@@ -41,32 +39,31 @@ impl Store {
         pod.annotations_mut()
             .remove("kubectl.kubernetes.io/last-applied-configuration");
 
-        if let Some(ip) = self.get_pod_ip(pod) {
-            if let Ok(mut metas) = self.metas.write() {
-                if !metas.contains_key(&ip) {
-                    let meta = Meta::from(&*pod);
-                    info!(
-                        "pod {:?} added with IP: {:?}",
-                        (&meta.namespace, &meta.name),
-                        &ip
-                    );
-                    metas.insert(ip, Arc::new(meta));
-                }
-            }
+        if let Some(ip) = self.get_pod_ip(pod)
+            && let Ok(mut metas) = self.metas.write()
+        {
+            metas.entry(ip.clone()).or_insert_with(|| {
+                let meta = Meta::from(&*pod);
+                info!(
+                    "pod {:?} added with IP: {:?}",
+                    (&meta.namespace, &meta.name),
+                    &ip
+                );
+                Arc::new(meta)
+            });
         }
     }
 
     pub fn delete(&self, pod: &Pod) {
-        if let Some(ip) = self.get_pod_ip(pod) {
-            if let Ok(mut metas) = self.metas.write() {
-                if let Some(meta) = metas.remove(&ip) {
-                    info!(
-                        "pod {:?} deleted with IP: {:?}",
-                        (&meta.namespace, &meta.name),
-                        &ip
-                    );
-                }
-            }
+        if let Some(ip) = self.get_pod_ip(pod)
+            && let Ok(mut metas) = self.metas.write()
+            && let Some(meta) = metas.remove(&ip)
+        {
+            info!(
+                "pod {:?} deleted with IP: {:?}",
+                (&meta.namespace, &meta.name),
+                &ip
+            );
         }
     }
 

@@ -1,17 +1,17 @@
 use crate::api::proxy::Proxy;
 use crate::api::script::Script;
 use crate::cmd::{ProxyHandler, ResourceHandler, ScriptHandler};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use futures::TryStreamExt;
 use k8s_openapi::NamespaceResourceScope;
 use kube::runtime::watcher::Event;
-use kube::{runtime::watcher, Api, Client, Resource};
+use kube::{Api, Client, Resource, runtime::watcher};
 use log::info;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use tokio::task::JoinSet;
 
-async fn watch_resource<'a, T, H>(handler: H) -> Result<()>
+async fn watch_resource<T, H>(handler: H) -> Result<()>
 where
     T: Resource<Scope = NamespaceResourceScope>
         + DeserializeOwned
@@ -41,10 +41,14 @@ where
                     info!("Pod watcher initialized");
                     Ok(())
                 }
-                Event::InitApply(t) | Event::Apply(t) => {
-                    handler.handle_create(t).await.map_err(watcher::Error::WatchFailed)
-                }
-                Event::Delete(t) => handler.handle_delete(t).await.map_err(watcher::Error::WatchFailed),
+                Event::InitApply(t) | Event::Apply(t) => handler
+                    .handle_create(t)
+                    .await
+                    .map_err(watcher::Error::WatchFailed),
+                Event::Delete(t) => handler
+                    .handle_delete(t)
+                    .await
+                    .map_err(watcher::Error::WatchFailed),
 
                 Event::InitDone => {
                     info!("Initial pod list completed");
