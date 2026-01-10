@@ -1,5 +1,4 @@
-use crate::proxy::layers::decision::DecisionLayer;
-use crate::proxy::layers::inject::InjectLayer;
+use crate::proxy::layers::{DecisionLayer, InjectLayer};
 use crate::proxy::service::{
     ProxyState, http_connect_accept, http_connect_proxy, new_http_proxy, new_tls_acceptor,
 };

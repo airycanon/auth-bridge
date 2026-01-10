@@ -1,11 +1,8 @@
 use crate::api::script::Script;
-use crate::proxy::injector::Injector;
-use crate::proxy::injector::basic::BasicAuthInjector;
-use crate::proxy::injector::bearer::BearerTokenInjector;
-use crate::proxy::injector::body::BodyInjector;
-use crate::proxy::injector::header::HeaderInjector;
-use crate::proxy::injector::query::QueryInjector;
-use crate::runtime::script::input::Input;
+use crate::proxy::injector::{
+    BasicAuthInjector, BearerTokenInjector, BodyInjector, HeaderInjector, Injector, QueryInjector,
+};
+use crate::runtime::script::Input;
 use anyhow::{Result, anyhow};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -121,7 +121,7 @@ impl ProxyResolver {
             let injector = spec
                 .auth
                 .method
-                .injector(&secret_data, self.auth_script.clone())?;
+                .injector(secret_data.as_ref(), self.auth_script.clone())?;
 
             debug!("injector created: {:?}", injector);
 

@@ -1,8 +1,8 @@
 use crate::api::auth::AuthMethod;
 use crate::api::condition::conditions;
+use crate::runtime::secret::{Raw, Storage};
 use crate::runtime::support::base_url::BaseUrl;
 use crate::runtime::support::env::{Env, SYSTEM_NAMESPACE_ENV};
-use crate::runtime::support::secret::{Kubernetes, Raw, Storage};
 use k8s_openapi::api::core::v1::SecretReference;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::Condition;
 use kube::CustomResource;
@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use schemars::{Schema, SchemaGenerator};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 // A struct with our chosen Kind will be created for us, using the following kube attrs
 #[derive(CustomResource, Serialize, Deserialize, Debug, Clone, JsonSchema)]
@@ -64,10 +65,10 @@ pub enum AuthStorage {
 }
 
 impl AuthStorage {
-    pub fn driver(&self) -> anyhow::Result<Box<dyn Storage>> {
+    pub fn driver(&self) -> anyhow::Result<Box<dyn Storage + '_>> {
         let storage: Box<dyn Storage> = match self {
-            AuthStorage::Raw(data) => Box::new(Raw(data.clone())),
-            AuthStorage::SecretRef(secret_ref) => Box::new(Kubernetes::new(secret_ref.clone())),
+            AuthStorage::Raw(data) => Box::new(Raw(Arc::new(data.clone()))),
+            AuthStorage::SecretRef(secret_ref) => Box::new(secret_ref.clone()),
         };
 
         Ok(storage)

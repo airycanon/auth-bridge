@@ -1,4 +1,4 @@
-use crate::proxy::layers::log::LogLayer;
+use crate::proxy::layers::LogLayer;
 use rama::{
     Layer, Service,
     error::{ErrorContext, OpaqueError},

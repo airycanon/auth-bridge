@@ -13,7 +13,16 @@ pub trait Injector: Send + Debug {
 }
 
 pub mod basic;
+pub use basic::BasicAuthInjector;
+
 pub mod bearer;
+pub use bearer::BearerTokenInjector;
+
 pub mod body;
+pub use body::BodyInjector;
+
 pub mod header;
+pub use header::HeaderInjector;
+
 pub mod query;
+pub use query::QueryInjector;
