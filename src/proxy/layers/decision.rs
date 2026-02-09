@@ -7,10 +7,11 @@ use rama::{
     Layer, Service,
     http::service::web::response::IntoResponse,
     http::{Body, Request, Response, StatusCode},
+    net::address::SocketAddress,
     net::stream::SocketInfo,
     telemetry::tracing,
 };
-use std::{convert::Infallible, net::SocketAddr, sync::Arc};
+use std::{convert::Infallible, sync::Arc};
 
 #[derive(Clone, Debug)]
 pub struct ProxyDecision {
@@ -74,8 +75,8 @@ where
         let addr = parts
             .extensions
             .get::<SocketInfo>()
-            .map(|info| *info.peer_addr())
-            .unwrap_or_else(|| SocketAddr::from(([0, 0, 0, 0], 0)));
+            .map(|info| info.peer_addr())
+            .unwrap_or_else(|| SocketAddress::default_ipv4(0));
 
         let bytes = match body.collect().await {
             Ok(collected) => {
@@ -91,7 +92,7 @@ where
         let input = match InputBuilder::default()
             .with_parts_ref(&parts)
             .with_body_ref(&bytes)
-            .with_pod_ip(addr.ip())
+            .with_pod_ip(addr.ip_addr)
             .build()
         {
             Ok(input) => input,

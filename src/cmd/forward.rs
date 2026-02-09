@@ -46,23 +46,24 @@ pub async fn run(args: &Args) -> Result<()> {
     });
 
     let tls_acceptor =
-        new_tls_acceptor(args.ca_key.clone(), args.ca_cert.clone()).map_err(Error::from)?;
+        new_tls_acceptor(args.ca_key.clone(), args.ca_cert.clone()).map_err(Error::msg)?;
 
     let state = ProxyState {
         tls_acceptor: Some(tls_acceptor),
-        user_agent: Arc::new(rama::ua::profile::UserAgentDatabase::try_embedded()?),
+        user_agent: Arc::new(
+            rama::ua::profile::UserAgentDatabase::try_embedded().map_err(Error::msg)?,
+        ),
     };
 
     let graceful = rama::graceful::Shutdown::default();
     let port = args.port;
 
     graceful.spawn_task_fn(move |guard| async move {
-        let tcp_service = TcpListener::build()
+        let exec = Executor::graceful(guard.clone());
+        let tcp_service = TcpListener::build(exec.clone())
             .bind(format!("0.0.0.0:{port}"))
             .await
             .expect("bind tcp proxy");
-
-        let exec = Executor::graceful(guard.clone());
         let layers = (DecisionLayer::new(AddressFilter), InjectLayer);
 
         let http_mitm_service = new_http_proxy(&state, layers.clone());
@@ -71,6 +72,7 @@ pub async fn run(args: &Args) -> Result<()> {
             TraceLayer::new_for_http(),
             ConsumeErrLayer::default(),
             UpgradeLayer::new(
+                exec.clone(),
                 MethodMatcher::CONNECT,
                 service_fn(http_connect_accept),
                 service_fn(move |upgraded| http_connect_proxy(upgraded, layers.clone())),
@@ -81,8 +83,7 @@ pub async fn run(args: &Args) -> Result<()> {
         let http_service = HttpServer::auto(exec).service(http_service);
 
         tcp_service
-            .serve_graceful(
-                guard,
+            .serve(
                 (
                     AddInputExtensionLayer::new(state),
                     BodyLimitLayer::symmetric(2 * 1024 * 1024),

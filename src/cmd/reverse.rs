@@ -19,7 +19,9 @@ pub struct Args {
 pub async fn run(args: &Args) -> anyhow::Result<()> {
     let state = ProxyState {
         tls_acceptor: None,
-        user_agent: Arc::new(rama::ua::profile::UserAgentDatabase::try_embedded()?),
+        user_agent: Arc::new(
+            rama::ua::profile::UserAgentDatabase::try_embedded().map_err(Error::msg)?,
+        ),
     };
 
     let graceful = rama::graceful::Shutdown::default();
@@ -27,19 +29,17 @@ pub async fn run(args: &Args) -> anyhow::Result<()> {
     let reverse_state = state.clone();
 
     graceful.spawn_task_fn(move |guard| async move {
-        let tcp_service = TcpListener::build()
+        let exec = Executor::graceful(guard.clone());
+        let tcp_service = TcpListener::build(exec.clone())
             .bind(format!("0.0.0.0:{port}"))
             .await
             .expect("bind reverse proxy");
-
-        let exec = Executor::graceful(guard.clone());
         let layers = (DecisionLayer::new(NameFilter), InjectLayer);
         let http_reverse_service = new_http_proxy(&reverse_state, layers);
         let http_service = HttpServer::auto(exec).service(http_reverse_service);
 
         tcp_service
-            .serve_graceful(
-                guard,
+            .serve(
                 (
                     AddInputExtensionLayer::new(reverse_state),
                     BodyLimitLayer::symmetric(2 * 1024 * 1024),

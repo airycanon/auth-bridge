@@ -1,7 +1,7 @@
 use crate::proxy::layers::LogLayer;
 use rama::{
     Layer, Service,
-    error::{ErrorContext, OpaqueError},
+    error::{BoxError, ErrorContext},
     extensions::{ExtensionsMut, ExtensionsRef},
     http::{
         Body, Request, Response, StatusCode, Version,
@@ -59,10 +59,11 @@ type BaseService = rama::service::BoxService<Request, Response, Infallible>;
 pub fn new_http_proxy<L>(
     ctx: &ProxyState,
     layers: L,
-) -> impl Service<Request, Output = Response, Error = Infallible>
+) -> impl Service<Request, Output = Response, Error = Infallible> + Clone
 where
     L: Layer<BaseService> + Clone + Send + Sync + 'static,
-    L::Service: Service<Request, Output = Response, Error = Infallible> + Send + Sync + 'static,
+    L::Service:
+        Service<Request, Output = Response, Error = Infallible> + Clone + Send + Sync + 'static,
 {
     let base = (
         MapResponseBodyLayer::new(Body::new),
@@ -103,7 +104,8 @@ pub async fn http_connect_accept(mut req: Request) -> Result<(Response, Request)
 pub async fn http_connect_proxy<L>(upgraded: Upgraded, layers: L) -> Result<(), Infallible>
 where
     L: Layer<BaseService> + Clone + Send + Sync + 'static,
-    L::Service: Service<Request, Output = Response, Error = Infallible> + Send + Sync + 'static,
+    L::Service:
+        Service<Request, Output = Response, Error = Infallible> + Clone + Send + Sync + 'static,
 {
     let ctx = upgraded
         .extensions()
@@ -168,7 +170,7 @@ pub async fn http_proxy(req: Request) -> Result<Response, Infallible> {
             Version::HTTP_11,
         )
         .with_custom_connector(UserAgentEmulateHttpConnectModifierLayer::default())
-        .with_default_http_connector()
+        .with_default_http_connector(executor.clone())
         .build_client()
         .with_jit_layer((
             UserAgentEmulateHttpRequestModifierLayer::default(),
@@ -198,7 +200,7 @@ pub async fn http_proxy(req: Request) -> Result<Response, Infallible> {
 pub fn new_tls_acceptor(
     ca_key_path: String,
     ca_cert_path: String,
-) -> Result<TlsAcceptorData, OpaqueError> {
+) -> Result<TlsAcceptorData, BoxError> {
     let ca_key_pem =
         std::fs::read_to_string(&ca_key_path).context("read MITM_CA_KEY_PATH (PEM)")?;
     let ca_cert_pem =
@@ -207,10 +209,10 @@ pub fn new_tls_acceptor(
     let server_auth = ServerAuth::CertIssuer(ServerCertIssuerData {
         kind: ServerCertIssuerKind::Single(ServerAuthData {
             private_key: DataEncoding::Pem(
-                NonEmptyStr::try_from(ca_key_pem).map_err(OpaqueError::from_std)?,
+                NonEmptyStr::try_from(ca_key_pem).map_err(BoxError::from)?,
             ),
             cert_chain: DataEncoding::Pem(
-                NonEmptyStr::try_from(ca_cert_pem).map_err(OpaqueError::from_std)?,
+                NonEmptyStr::try_from(ca_cert_pem).map_err(BoxError::from)?,
             ),
             ocsp: None,
         }),
