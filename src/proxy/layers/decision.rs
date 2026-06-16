@@ -5,6 +5,7 @@ use bytes::{Buf, Bytes};
 use http_body_util::BodyExt;
 use rama::{
     Layer, Service,
+    extensions::Extension,
     http::service::web::response::IntoResponse,
     http::{Body, Request, Response, StatusCode},
     net::address::SocketAddress,
@@ -13,7 +14,7 @@ use rama::{
 };
 use std::{convert::Infallible, sync::Arc};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Extension)]
 pub struct ProxyDecision {
     pub(crate) resolver: Arc<ProxyResolver>,
     pub(crate) should_apply: bool,
@@ -74,7 +75,7 @@ where
         let (parts, body) = req.into_parts();
         let addr = parts
             .extensions
-            .get::<SocketInfo>()
+            .get_ref::<SocketInfo>()
             .map(|info| info.peer_addr())
             .unwrap_or_else(|| SocketAddress::default_ipv4(0));
 
@@ -118,7 +119,6 @@ where
             }
         };
         let body_bytes = bytes.clone();
-        let mut parts = parts;
         parts.extensions.insert(ProxyDecision {
             resolver: Arc::new(resolver),
             should_apply,

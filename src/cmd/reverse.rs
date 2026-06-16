@@ -31,7 +31,7 @@ pub async fn run(args: &Args) -> anyhow::Result<()> {
     graceful.spawn_task_fn(move |guard| async move {
         let exec = Executor::graceful(guard.clone());
         let tcp_service = TcpListener::build(exec.clone())
-            .bind(format!("0.0.0.0:{port}"))
+            .bind_address(format!("0.0.0.0:{port}"))
             .await
             .expect("bind reverse proxy");
         let layers = (DecisionLayer::new(NameFilter), InjectLayer);

@@ -2,7 +2,7 @@ use crate::proxy::layers::LogLayer;
 use rama::{
     Layer, Service,
     error::{BoxError, ErrorContext},
-    extensions::{ExtensionsMut, ExtensionsRef},
+    extensions::{Extension, ExtensionsRef},
     http::{
         Body, Request, Response, StatusCode, Version,
         client::EasyHttpWebClient,
@@ -14,7 +14,7 @@ use rama::{
             required_header::AddRequiredRequestHeadersLayer,
             trace::TraceLayer,
             traffic_writer::{self, RequestWriterLayer},
-            upgrade::Upgraded,
+            upgrade::{UpgradeResponse, Upgraded},
         },
         service::web::response::IntoResponse,
     },
@@ -24,7 +24,7 @@ use rama::{
         proxy::ProxyTarget,
         tls::{
             ApplicationProtocol, DataEncoding, SecureTransport,
-            client::ServerVerifyMode,
+            client::{ServerVerifyMode, TlsClientConfig},
             server::{
                 CacheKind, ServerAuth, ServerAuthData, ServerCertIssuerData, ServerCertIssuerKind,
                 ServerConfig,
@@ -34,7 +34,7 @@ use rama::{
     service::service_fn,
     telemetry::tracing,
     tls::boring::{
-        client::{EmulateTlsProfileLayer, TlsConnectorDataBuilder},
+        client::{BoringClientConfigExt, EmulateTlsProfileLayer},
         server::{TlsAcceptorData, TlsAcceptorLayer},
     },
     ua::{
@@ -48,7 +48,7 @@ use rama::{
 };
 use std::{convert::Infallible, sync::Arc};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Extension)]
 pub struct ProxyState {
     pub tls_acceptor: Option<TlsAcceptorData>,
     pub user_agent: Arc<UserAgentDatabase>,
@@ -82,7 +82,9 @@ where
     LogLayer.into_layer(base)
 }
 
-pub async fn http_connect_accept(mut req: Request) -> Result<(Response, Request), Response> {
+pub async fn http_connect_accept(
+    req: Request,
+) -> Result<UpgradeResponse<Request, Response>, Response> {
     match RequestContext::try_from(&req).map(|ctx| ctx.host_with_port()) {
         Ok(authority) => {
             tracing::info!(
@@ -90,7 +92,7 @@ pub async fn http_connect_accept(mut req: Request) -> Result<(Response, Request)
                 server.port = authority.port,
                 "accept CONNECT (lazy): insert proxy target into context",
             );
-            req.extensions_mut().insert(ProxyTarget(authority));
+            req.extensions().insert(ProxyTarget(authority));
         }
         Err(err) => {
             tracing::error!("error extracting authority: {err:?}");
@@ -98,7 +100,12 @@ pub async fn http_connect_accept(mut req: Request) -> Result<(Response, Request)
         }
     }
 
-    Ok((StatusCode::OK.into_response(), req))
+    let extensions = req.extensions().clone();
+    Ok(UpgradeResponse {
+        response: StatusCode::OK.into_response(),
+        request: req,
+        extensions,
+    })
 }
 
 pub async fn http_connect_proxy<L>(upgraded: Upgraded, layers: L) -> Result<(), Infallible>
@@ -109,15 +116,11 @@ where
 {
     let ctx = upgraded
         .extensions()
-        .get::<ProxyState>()
+        .get_ref::<ProxyState>()
         .expect("proxy context");
     let http_service = new_http_proxy(ctx, layers);
 
-    let executor = upgraded
-        .extensions()
-        .get::<rama::rt::Executor>()
-        .cloned()
-        .unwrap_or_default();
+    let executor = rama::rt::Executor::default();
 
     let mut http_tp = rama::http::server::HttpServer::auto(executor);
     http_tp.h2_mut().set_enable_connect_protocol();
@@ -143,32 +146,21 @@ where
 }
 
 pub async fn http_proxy(req: Request) -> Result<Response, Infallible> {
-    let base_tls_config = if let Some(hello) = req
+    let base_tls_config = req
         .extensions()
-        .get::<SecureTransport>()
+        .get_ref::<SecureTransport>()
         .and_then(|st| st.client_hello())
-        .cloned()
-    {
-        TlsConnectorDataBuilder::try_from(hello).unwrap()
-    } else {
-        TlsConnectorDataBuilder::new_http_auto()
-    };
-    let base_tls_config = base_tls_config.with_server_verify_mode(ServerVerifyMode::Disable);
+        .map(TlsClientConfig::new_from_client_hello)
+        .unwrap_or_else(TlsClientConfig::default_http)
+        .with_server_verify(ServerVerifyMode::Disable);
 
-    let executor = req
-        .extensions()
-        .get::<rama::rt::Executor>()
-        .cloned()
-        .unwrap_or_default();
+    let executor = rama::rt::Executor::default();
 
     let client = EasyHttpWebClient::connector_builder()
         .with_default_transport_connector()
         .with_tls_proxy_support_using_boringssl()
         .with_proxy_support()
-        .with_tls_support_using_boringssl_and_default_http_version(
-            Some(Arc::new(base_tls_config)),
-            Version::HTTP_11,
-        )
+        .with_tls_support_using_boringssl_and_default_http_version(base_tls_config, Version::HTTP_11)
         .with_custom_connector(UserAgentEmulateHttpConnectModifierLayer::default())
         .with_default_http_connector(executor.clone())
         .build_client()

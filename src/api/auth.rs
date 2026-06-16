@@ -1,6 +1,6 @@
 use crate::api::script::Script;
 use crate::proxy::injector::{
-    BasicAuthInjector, BearerTokenInjector, BodyInjector, HeaderInjector, Injector, QueryInjector,
+    AuthInjector, BodyInjector, HeaderInjector, Injector, QueryInjector,
 };
 use crate::runtime::script::Input;
 use anyhow::{Result, anyhow};
@@ -51,14 +51,14 @@ impl AuthMethod {
                     .ok_or_else(|| anyhow!("missing password in secret data"))?
                     .to_string();
 
-                Ok(Box::new(BasicAuthInjector::new(username, password)))
+                Ok(Box::new(AuthInjector::basic(&username, &password)?))
             }
             AuthMethod::BearerToken {} => {
                 let token = secret_data
                     .get("token")
                     .ok_or_else(|| anyhow!("missing token in secret data"))?
                     .to_string();
-                Ok(Box::new(BearerTokenInjector::new(token)))
+                Ok(Box::new(AuthInjector::bearer(&token)?))
             }
             AuthMethod::Generic { position, key } => {
                 let value = secret_data

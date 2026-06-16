@@ -32,7 +32,7 @@ where
 
     async fn serve(&self, req: Request) -> std::result::Result<Self::Output, Self::Error> {
         let (parts, body) = req.into_parts();
-        let decision = parts.extensions.get::<ProxyDecision>().cloned();
+        let decision = parts.extensions.get_ref::<ProxyDecision>().cloned();
         let request = if let Some(decision) = decision {
             let mut http_parts: http::request::Parts = parts.into();
             let body = if decision.should_apply {

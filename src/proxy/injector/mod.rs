@@ -12,11 +12,8 @@ pub trait Injector: Send + Debug {
     fn inject<'a>(&'a self, parts: &'a mut Parts, bytes: &'a Bytes) -> InjectedResult<'a>;
 }
 
-pub mod basic;
-pub use basic::BasicAuthInjector;
-
-pub mod bearer;
-pub use bearer::BearerTokenInjector;
+pub mod auth;
+pub use auth::AuthInjector;
 
 pub mod body;
 pub use body::BodyInjector;
